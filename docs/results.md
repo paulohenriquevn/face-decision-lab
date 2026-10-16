@@ -97,3 +97,23 @@ linear probe on the same protocol and test crops:
 The tuned model beats the frozen probe on every protocol, most on unseen text2img, where the
 BPCER at APCER ≤ 5% falls from 24.0% to 4.5%. Training took 15.9 to 21.5 minutes per protocol. The tuned parameters and each report are in the
 private model repository `paulohenriquevn/face-decision-clip-ln`.
+
+## 2026-10-16: decision model at 600 steps with vision LoRA
+
+Same subject_holdout protocol and 4,000 test crops. 600 steps of 32 rows (19,200 training rows),
+language and vision LoRA, calibrated on 1,000 held-out training subjects. Adapter and report:
+`paulohenriquevn/face-decision-qwen35-4b`, folder `subject_holdout-vision-lora-600-steps`.
+
+| Model | Training rows | AUC | EER | BPCER at APCER ≤ 5% |
+|---|---|---|---|---|
+| Decision model, vision LoRA, 60 steps | 1,920 | 0.850 | 22.7% | 75.1% |
+| Decision model, vision LoRA, 600 steps | 19,200 | **0.996** | **3.0%** | **2.3%** |
+| Frozen CLIP linear probe | 79,087 | 0.994 | 3.5% | 2.6% |
+| LayerNorm-tuned CLIP | 79,087 | 0.998 | 1.6% | 1.2% |
+
+Ten times more training rows took the decision model from AUC 0.850 to 0.996, past the frozen
+CLIP probe trained on four times more rows, and its attack_type accuracy reached 94.1%. It stays
+below the LayerNorm-tuned CLIP detector, with predict p95 at 326 ms on an L4. This passes the
+gate set in the plan (AUC above 0.981, the CLIP probe at 1,920 rows), so the decision model remains
+a candidate detector. The protocols that matter for generalization (`unseen_text2img`,
+`unseen_insight`) have not been run for it yet.
