@@ -1,3 +1,7 @@
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 import pytest
 
@@ -5,6 +9,7 @@ from face_decision_lab.faces import (
     Box,
     CropReport,
     Outcome,
+    RetinaFaceDetector,
     encode_jpeg,
     frame_indices,
     letterbox,
@@ -96,3 +101,47 @@ def test_letterbox_never_enlarges_a_small_image():
     assert scale == 1.0
     assert canvas[99, 49].tolist() == [7, 7, 7]
     assert canvas[100, 50].tolist() == [0, 0, 0]
+
+
+class _ConcurrencyProbe:
+    """Stands in for the retina-face module and records how many inferences overlap."""
+
+    def __init__(self):
+        self.active = 0
+        self.peak = 0
+        self._lock = threading.Lock()
+
+    def detect_faces(self, image, **kwargs):
+        with self._lock:
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+        time.sleep(0.01)
+        with self._lock:
+            self.active -= 1
+        return {"face_1": {"facial_area": [10, 10, 50, 50]}}
+
+
+def _probed_detector():
+    detector = RetinaFaceDetector.__new__(RetinaFaceDetector)
+    detector._retinaface, detector._model = _ConcurrencyProbe(), None
+    detector._threshold, detector._size = 0.9, 640
+    detector._inference = threading.Lock()
+    return detector
+
+
+def test_detector_never_runs_two_inferences_at_once():
+    detector = _probed_detector()
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(detector, [np.zeros((100, 100, 3), np.uint8)] * 16))
+
+    assert detector._retinaface.peak == 1
+
+
+def test_detector_maps_boxes_back_to_the_original_scale():
+    detector = _probed_detector()
+
+    [box] = detector(np.zeros((1280, 1280, 3), np.uint8))
+
+    # The 1280 px image is shrunk by half to fit 640 px, so the 10..50 box doubles.
+    assert (box.x, box.y, box.w, box.h) == (20, 20, 80, 80)

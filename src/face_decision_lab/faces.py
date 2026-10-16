@@ -5,6 +5,7 @@ resolution and compression (in DeepFakeFace every fake is 512x512 and the real p
 a model would learn that shortcut instead of the manipulation.
 """
 
+import threading
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -129,7 +130,11 @@ def letterbox(image: np.ndarray, size: int = DETECTION_SIZE) -> tuple[np.ndarray
 class RetinaFaceDetector:
     """RetinaFace (the `retina-face` package, MIT). It runs on TensorFlow, PyTorch or ONNX Runtime,
     whichever is installed first in that order; only TensorFlow and onnxruntime-gpu use a GPU.
-    Boxes come back in the coordinates of the original image."""
+    Boxes come back in the coordinates of the original image.
+
+    Safe to call from several threads: inference runs one call at a time. Concurrent runs of one
+    ONNX Runtime CUDA session crashed a Colab L4 build with "CUDA failure 700: an illegal memory
+    access", so callers may decode and crop in parallel but never infer in parallel."""
 
     def __init__(self, threshold: float = 0.9, size: int = DETECTION_SIZE):
         from retinaface import RetinaFace
@@ -138,12 +143,14 @@ class RetinaFaceDetector:
         self._model = RetinaFace.build_model()
         self._threshold = threshold
         self._size = size
+        self._inference = threading.Lock()
 
     def __call__(self, image: np.ndarray) -> list[Box]:
         canvas, scale = letterbox(image, self._size)
-        found = self._retinaface.detect_faces(
-            canvas, threshold=self._threshold, model=self._model, allow_upscaling=False
-        )
+        with self._inference:
+            found = self._retinaface.detect_faces(
+                canvas, threshold=self._threshold, model=self._model, allow_upscaling=False
+            )
         if not isinstance(found, dict):
             return []
         boxes = []
