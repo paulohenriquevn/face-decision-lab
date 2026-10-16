@@ -30,7 +30,10 @@ Research only. Nothing here has been trained or measured yet. The plan and its p
 | `src/face_decision_lab/sources/` | Adapters mapping each source dataset to labels and subjects |
 | `src/face_decision_lab/build.py` | Resumable dataset build: crops, manifest and detection report |
 | `src/face_decision_lab/hub.py` | Uploads the build as a private Hugging Face dataset and loads it back |
+| `src/face_decision_lab/protocol.py` | The split, test subset and metrics every model is scored with |
+| `src/face_decision_lab/baselines.py` | Linear probe baseline |
 | `notebooks/build_dataset.ipynb` | Builds the dataset on a Colab GPU and uploads it |
+| `notebooks/clip_baseline.ipynb` | Scores the CLIP linear probe under the same protocol |
 | `notebooks/train_decision_model.ipynb` | Trains, calibrates and evaluates on Colab |
 
 ## Running

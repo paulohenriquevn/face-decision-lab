@@ -1,7 +1,7 @@
 import pytest
 
 from face_decision_lab.errors import SplitError
-from face_decision_lab.splits import cross_dataset_split, group_split
+from face_decision_lab.splits import capped, cross_dataset_split, group_split, standard_split
 
 
 def _frames(make_sample, subjects, frames_per_subject=3):
@@ -69,3 +69,39 @@ def test_cross_dataset_split_rejects_an_empty_side(make_sample):
 
     with pytest.raises(SplitError, match="test side is empty"):
         cross_dataset_split(samples, {"ffpp"}, {"celebdf"})
+
+
+def test_standard_split_keeps_each_subject_on_one_side(make_sample):
+    samples = _frames(make_sample, [f"s{i}" for i in range(40)])
+
+    train, calibration, test = standard_split(samples, 0.2, 0.1, seed=3)
+
+    sides = [{s.subject_id for s in side} for side in (train, calibration, test)]
+    assert sides[0].isdisjoint(sides[1]) and sides[0].isdisjoint(sides[2]) and sides[1].isdisjoint(sides[2])
+
+
+def test_standard_split_is_the_same_on_every_call(make_sample):
+    samples = _frames(make_sample, [f"s{i}" for i in range(40)])
+
+    assert standard_split(samples, 0.2, 0.1, seed=3) == standard_split(samples, 0.2, 0.1, seed=3)
+
+
+def test_capped_returns_the_requested_count_in_original_order(make_sample):
+    samples = _frames(make_sample, [f"s{i}" for i in range(10)])
+
+    subset = capped(samples, 7, seed=1)
+
+    assert len(subset) == 7
+    assert subset == [s for s in samples if s in subset]
+
+
+def test_capped_is_reproducible_with_the_same_seed(make_sample):
+    samples = _frames(make_sample, [f"s{i}" for i in range(10)])
+
+    assert capped(samples, 7, seed=1) == capped(samples, 7, seed=1)
+
+
+def test_capped_keeps_everything_without_a_cap(make_sample):
+    samples = _frames(make_sample, ["s1", "s2"])
+
+    assert capped(samples, None, seed=1) == samples

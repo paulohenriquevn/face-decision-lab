@@ -43,6 +43,27 @@ def cross_dataset_split(
     return train, test
 
 
+def standard_split(
+    samples: list[FaceSample], test_fraction: float, calibration_fraction: float, seed: int
+) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
+    """Train, calibration and test sides by subject. Every model compared in the lab uses this
+    split with the same arguments, so their metrics cover the same people."""
+    train, test = group_split(samples, test_fraction, seed)
+    train, calibration = group_split(train, calibration_fraction, seed)
+    return train, calibration, test
+
+
+def capped(samples: list[FaceSample], max_count: int | None, seed: int) -> list[FaceSample]:
+    """A seeded random subset of at most max_count samples, in their original order. Both the
+    decision model and the baselines score the same capped test subset."""
+    if max_count is None or len(samples) <= max_count:
+        return list(samples)
+    if max_count <= 0:
+        raise SplitError(f"max_count must be positive, got {max_count}")
+    chosen = set(random.Random(seed).sample(range(len(samples)), max_count))
+    return [sample for index, sample in enumerate(samples) if index in chosen]
+
+
 def _assert_no_shared_video(train: list[FaceSample], test: list[FaceSample]) -> None:
     shared = {sample.video_id for sample in train} & {sample.video_id for sample in test}
     if shared:
