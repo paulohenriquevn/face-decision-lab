@@ -8,7 +8,9 @@ rebuilt from it, so a Colab session that dies halfway restarts where it stopped 
 import json
 import zipfile
 from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
+from itertools import islice
 from pathlib import Path
 
 import numpy as np
@@ -81,6 +83,26 @@ class DatasetBuilder:
             return
         crop, outcome = crop_frame(decode_image(data), self.detector)
         self._record(item, key, [(0, crop, outcome)])
+
+    def add_images(
+        self, items: Iterable[tuple[SourceItem, bytes]], workers: int = 8, batch: int = 256
+    ) -> int:
+        """Crops many images on a thread pool; returns how many were processed.
+
+        Detection runs in ONNX Runtime and OpenCV, which release the GIL, so threads keep the GPU
+        busy while others decode and post-process. Results are recorded in input order.
+        """
+        pending = (
+            (item, data) for item, data in items if f"{item.source_dataset}:{item.path}" not in self._done
+        )
+        processed = 0
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            while chunk := list(islice(pending, batch)):
+                crops = pool.map(lambda pair: crop_frame(decode_image(pair[1]), self.detector), chunk)
+                for (item, _), (crop, outcome) in zip(chunk, crops, strict=True):
+                    self._record(item, f"{item.source_dataset}:{item.path}", [(0, crop, outcome)])
+                processed += len(chunk)
+        return processed
 
     def add_video(self, item: SourceItem, path: Path) -> None:
         key = f"{item.source_dataset}:{item.path}"

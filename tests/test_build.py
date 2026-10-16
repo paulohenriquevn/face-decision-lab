@@ -98,3 +98,24 @@ def test_zip_members_yields_parsed_items_with_their_bytes(tmp_path):
     [(item, data)] = list(zip_members(archive, deepfakeface.parse_member))
 
     assert (item.generator, data) == ("wiki", b"bytes")
+
+
+def test_add_images_records_every_image_in_input_order(tmp_path):
+    names = [f"wiki/61/{i}_1982-08-16_2009.jpg" for i in range(10)]
+    items = [(deepfakeface.parse_member(name), jpeg()) for name in names]
+    builder = DatasetBuilder(tmp_path, one_face)
+
+    processed = builder.add_images(items, workers=4, batch=3)
+
+    assert processed == 10
+    assert [s.subject_id for s in builder.samples] == [f"imdbwiki_{i}" for i in range(10)]
+
+
+def test_add_images_skips_images_already_processed(tmp_path, wiki_item):
+    builder = DatasetBuilder(tmp_path, one_face)
+    builder.add_image(wiki_item, jpeg())
+
+    processed = builder.add_images([(wiki_item, jpeg())])
+
+    assert processed == 0
+    assert len(builder.samples) == 1
