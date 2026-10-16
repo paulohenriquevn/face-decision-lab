@@ -17,8 +17,8 @@ SMOKE_TEST_SOURCE = "smoke_test"
 
 def write_smoke_dataset(
     output_dir: str | Path,
-    subjects_per_source: int = 8,
-    frames_per_subject: int = 4,
+    subjects_per_source: int = 14,
+    frames_per_subject: int = 2,
     image_size: int = 224,
     seed: int = 0,
 ) -> list[FaceSample]:
@@ -35,7 +35,9 @@ def write_smoke_dataset(
         for subject_index in range(subjects_per_source):
             subject = f"{source}_s{subject_index}"
             # Half the subjects are bona fide, the rest cycle through every attack type.
-            attack_type = BONA_FIDE if subject_index % 2 == 0 else attacks[subject_index // 2 % len(attacks)]
+            attack_type = (
+                BONA_FIDE if subject_index % 2 == 0 else attacks[(subject_index // 2) % len(attacks)]
+            )
             for frame in range(frames_per_subject):
                 relative = Path(source) / f"{subject}_{frame}.png"
                 path = output_dir / relative
