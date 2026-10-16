@@ -7,6 +7,7 @@ from face_decision_lab.faces import (
     Outcome,
     encode_jpeg,
     frame_indices,
+    letterbox,
     pick_face,
     square_crop,
 )
@@ -75,3 +76,23 @@ def test_frame_indices_never_exceed_the_video_length():
 def test_frame_indices_reject_an_empty_video():
     with pytest.raises(ValueError, match="0 frames"):
         frame_indices(total_frames=0, count=8)
+
+
+def test_letterbox_gives_every_image_the_same_shape():
+    shapes = {letterbox(np.zeros(size + (3,), np.uint8), 640)[0].shape for size in [(260, 360), (1200, 800)]}
+
+    assert shapes == {(640, 640, 3)}
+
+
+def test_letterbox_shrinks_by_the_longest_side():
+    _, scale = letterbox(np.zeros((1200, 800, 3), np.uint8), 640)
+
+    assert scale == 640 / 1200
+
+
+def test_letterbox_never_enlarges_a_small_image():
+    canvas, scale = letterbox(np.full((100, 50, 3), 7, np.uint8), 640)
+
+    assert scale == 1.0
+    assert canvas[99, 49].tolist() == [7, 7, 7]
+    assert canvas[100, 50].tolist() == [0, 0, 0]

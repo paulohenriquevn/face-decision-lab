@@ -107,23 +107,47 @@ def frame_indices(total_frames: int, count: int) -> list[int]:
     return [int(step * i + step / 2) for i in range(count)]
 
 
+# Detection input side. The retina-face package upscales every image so its short side is 1024 px,
+# which on a GPU means a large, different input shape per image. Portraits fit in 640 px.
+DETECTION_SIZE = 640
+
+
+def letterbox(image: np.ndarray, size: int = DETECTION_SIZE) -> tuple[np.ndarray, float]:
+    """Shrinks the image to fit a size x size canvas (never enlarges it), pads the rest with black
+    and returns the canvas with the scale applied. Every detection input then has the same shape."""
+    import cv2
+
+    height, width = image.shape[:2]
+    scale = min(1.0, size / max(height, width))
+    if scale < 1.0:
+        image = cv2.resize(image, (round(width * scale), round(height * scale)), interpolation=cv2.INTER_AREA)
+    canvas = np.zeros((size, size) + image.shape[2:], dtype=image.dtype)
+    canvas[: image.shape[0], : image.shape[1]] = image
+    return canvas, scale
+
+
 class RetinaFaceDetector:
     """RetinaFace (the `retina-face` package, MIT). It runs on TensorFlow, PyTorch or ONNX Runtime,
-    whichever is installed first in that order; only TensorFlow and onnxruntime-gpu use a GPU."""
+    whichever is installed first in that order; only TensorFlow and onnxruntime-gpu use a GPU.
+    Boxes come back in the coordinates of the original image."""
 
-    def __init__(self, threshold: float = 0.9):
+    def __init__(self, threshold: float = 0.9, size: int = DETECTION_SIZE):
         from retinaface import RetinaFace
 
         self._retinaface = RetinaFace
         self._model = RetinaFace.build_model()
         self._threshold = threshold
+        self._size = size
 
     def __call__(self, image: np.ndarray) -> list[Box]:
-        found = self._retinaface.detect_faces(image, threshold=self._threshold, model=self._model)
+        canvas, scale = letterbox(image, self._size)
+        found = self._retinaface.detect_faces(
+            canvas, threshold=self._threshold, model=self._model, allow_upscaling=False
+        )
         if not isinstance(found, dict):
             return []
         boxes = []
         for face in found.values():
-            x1, y1, x2, y2 = face["facial_area"]
+            x1, y1, x2, y2 = (value / scale for value in face["facial_area"])
             boxes.append(Box(x=x1, y=y1, w=x2 - x1, h=y2 - y1))
         return boxes
