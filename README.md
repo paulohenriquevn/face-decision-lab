@@ -32,8 +32,10 @@ Research only. Nothing here has been trained or measured yet. The plan and its p
 | `src/face_decision_lab/hub.py` | Uploads the build as a private Hugging Face dataset and loads it back |
 | `src/face_decision_lab/protocol.py` | The split, test subset and metrics every model is scored with |
 | `src/face_decision_lab/baselines.py` | Linear probe baseline |
+| `src/face_decision_lab/pairs.py` | Batches that keep a real photo with the fakes made from it |
 | `notebooks/build_dataset.ipynb` | Builds the dataset on a Colab GPU and uploads it |
 | `notebooks/clip_baseline.ipynb` | Scores the CLIP linear probe under the same protocol |
+| `notebooks/clip_layernorm_detector.ipynb` | Trains and scores a LayerNorm-tuned CLIP detector (GenD recipe) per protocol |
 | `notebooks/train_decision_model.ipynb` | Trains, calibrates and evaluates on Colab |
 
 ## Running
