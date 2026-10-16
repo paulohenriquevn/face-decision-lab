@@ -36,3 +36,41 @@ and the next runs separate them:
 2. **Frozen vision tower.** Unsloth trains LoRA on the language layers only. If the probe stays near
    0.99 on 1,920 rows, the frozen Qwen vision encoder is the more likely limit (experiment 4 in
    `docs/experiment-plan.md`).
+
+## 2026-10-16: data volume, vision LoRA and unseen generators
+
+Same protocol and test crops as above.
+
+**Data volume does not explain the gap.** The CLIP probe trained on the same 1,920 rows as the
+decision model (same seed, same `capped()` subset):
+
+| Model | Training rows | AUC | EER | BPCER at APCER ≤ 5% |
+|---|---|---|---|---|
+| CLIP linear probe | 1,920 | 0.981 | 7.0% | 10.9% |
+| Decision model, language LoRA | 1,920 | 0.751 | 31.6% | 85.0% |
+| Decision model, language and vision LoRA | 1,920 | 0.850 | 22.7% | 75.1% |
+
+Vision LoRA (`TRAIN_VISION = True`, 70.8 M trainable parameters against 64.5 M) raised AUC by
+0.10, calibration decision accuracy from 69.4% to 72.0% and lowered ECE from 0.053 to 0.034, with
+predict p95 at 326 ms. The frozen vision tower was a bottleneck, and the decision model with vision
+LoRA still trails a linear probe on frozen CLIP features at equal data.
+
+**Unseen generators are the harder test.** CLIP probe on the `unseen_*` protocols (trained without
+one generator, tested on bona fide crops and that generator only):
+
+| Protocol | Training rows | AUC | EER | BPCER at APCER ≤ 5% |
+|---|---|---|---|---|
+| subject_holdout | 79,087 | 0.994 | 3.5% | 2.6% |
+| unseen_text2img | 58,686 | 0.956 | 11.7% | 24.0% |
+| unseen_insight | 59,936 | 0.966 | 9.6% | 22.4% |
+| unseen_inpainting | 59,768 | 0.995 | 3.8% | 2.6% |
+| subject_holdout | 1,920 | 0.981 | 7.0% | 10.9% |
+| unseen_text2img | 1,920 | 0.906 | 17.7% | 42.4% |
+| unseen_insight | 1,920 | 0.946 | 12.8% | 33.4% |
+| unseen_inpainting | 1,920 | 0.982 | 6.6% | 10.0% |
+
+`unseen_text2img` and `unseen_insight` are where models should be compared from now on.
+
+For outside context only: the DeepFakeFace paper (arXiv 2309.02218, Table 2) reports RECCE at AUC
+35.1% on SD 1.5, 51.5% on inpainting and 63.1% on InsightFace. Its training data and split differ
+from ours, so those numbers are not comparable to the tables above.
