@@ -16,9 +16,29 @@ MAX_TEST_SAMPLES = 4000
 MAX_APCER = 0.05
 
 
-def protocol_split(samples: list[FaceSample]) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
+# Protocols by name. "subject_holdout" tests new people on known generators. The "unseen_*" ones
+# also remove one generator from training and test only on it, which measures generalization to a
+# manipulation method the model never saw: the question that separates detectors in the literature.
+PROTOCOLS = {
+    "subject_holdout": frozenset(),
+    "unseen_text2img": frozenset({"text2img"}),
+    "unseen_insight": frozenset({"insight"}),
+    "unseen_inpainting": frozenset({"inpainting"}),
+}
+
+
+def protocol_split(
+    samples: list[FaceSample], protocol: str = "subject_holdout"
+) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
     """Train, calibration and the capped test subset that every model is scored on."""
+    if protocol not in PROTOCOLS:
+        raise ValueError(f"unknown protocol {protocol!r}; choose one of {sorted(PROTOCOLS)}")
+    held_out = PROTOCOLS[protocol]
     train, calibration, test = standard_split(samples, TEST_FRACTION, CALIBRATION_FRACTION, SEED)
+    if held_out:
+        train = [s for s in train if s.generator not in held_out]
+        calibration = [s for s in calibration if s.generator not in held_out]
+        test = [s for s in test if s.is_bona_fide or s.generator in held_out]
     return train, calibration, capped(test, MAX_TEST_SAMPLES, SEED)
 
 

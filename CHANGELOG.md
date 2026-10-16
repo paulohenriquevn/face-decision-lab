@@ -12,6 +12,8 @@
 - Evaluation broken down by generator as well as by attack type
 - Shared evaluation protocol (split, test subset, APCER limit) so every model is scored on the same subjects
 - CLIP ViT-L/14 linear probe baseline
+- Unseen-generator protocols that train without one manipulation method and test only on it
+- Option to train LoRA on the vision tower of the decision model
 - Upload of the trained adapter and its evaluation report to a private Hugging Face model repository
 - Smoke mode that runs the whole training pipeline on generated noise images, with no face data
 - Colab notebook that trains, calibrates and evaluates a Qwen3.5-4B decision model on face crops

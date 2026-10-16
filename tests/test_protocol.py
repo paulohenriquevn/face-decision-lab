@@ -67,3 +67,32 @@ def test_linear_probe_separates_linearly_separable_features():
 def test_linear_probe_rejects_a_single_class():
     with pytest.raises(MetricInputError, match="both bona fide and attack"):
         LinearProbe().fit(np.zeros((4, 2)), np.ones(4, dtype=bool))
+
+
+def test_unseen_generator_protocol_removes_it_from_training(make_sample):
+    samples = _samples(make_sample, 900)
+
+    train, calibration, _ = protocol_split(samples, "unseen_text2img")
+
+    assert "text2img" not in {s.generator for s in train + calibration}
+
+
+def test_unseen_generator_protocol_tests_only_bona_fide_and_that_generator(make_sample):
+    samples = _samples(make_sample, 900)
+
+    _, _, test = protocol_split(samples, "unseen_text2img")
+
+    assert {s.generator for s in test} == {"wiki", "text2img"}
+
+
+def test_unseen_generator_protocol_keeps_the_subject_holdout(make_sample):
+    samples = _samples(make_sample, 900)
+
+    train, _, test = protocol_split(samples, "unseen_text2img")
+
+    assert {s.subject_id for s in train}.isdisjoint({s.subject_id for s in test})
+
+
+def test_protocol_split_rejects_an_unknown_protocol(make_sample):
+    with pytest.raises(ValueError, match="unknown protocol"):
+        protocol_split(_samples(make_sample, 30), "cross_universe")
