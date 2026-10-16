@@ -1,0 +1,17 @@
+# Personal tooling, never versioned
+.claude/
+BACKLOG.md
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+
+# Face data and model outputs: third-party datasets with research-only licenses
+data/
+outputs/
+checkpoints/
+*.safetensors
