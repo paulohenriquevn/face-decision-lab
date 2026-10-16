@@ -74,3 +74,26 @@ one generator, tested on bona fide crops and that generator only):
 For outside context only: the DeepFakeFace paper (arXiv 2309.02218, Table 2) reports RECCE at AUC
 35.1% on SD 1.5, 51.5% on inpainting and 63.1% on InsightFace. Its training data and split differ
 from ours, so those numbers are not comparable to the tables above.
+
+## 2026-10-16: LayerNorm-tuned CLIP detector
+
+`notebooks/clip_layernorm_detector.ipynb`: CLIP ViT-L/14 with only its LayerNorm parameters
+trained, L2-normalized features, a linear head and batches that keep each DeepFakeFace photo with
+the fakes made from it (the recipe of GenD, arXiv 2508.06248, without its metric learning loss). One
+epoch per protocol, batch 32, learning rate 3e-4, on a Colab L4. Compared with the frozen CLIP
+linear probe on the same protocol and test crops:
+
+| Protocol | Model | AUC | EER | BPCER at APCER ≤ 5% |
+|---|---|---|---|---|
+| subject_holdout | frozen CLIP probe | 0.994 | 3.5% | 2.6% |
+| subject_holdout | LayerNorm-tuned CLIP | **0.998** | **1.6%** | **1.2%** |
+| unseen_text2img | frozen CLIP probe | 0.956 | 11.7% | 24.0% |
+| unseen_text2img | LayerNorm-tuned CLIP | **0.989** | **4.7%** | **4.5%** |
+| unseen_insight | frozen CLIP probe | 0.966 | 9.6% | 22.4% |
+| unseen_insight | LayerNorm-tuned CLIP | **0.975** | **6.9%** | **13.6%** |
+| unseen_inpainting | frozen CLIP probe | 0.995 | 3.8% | 2.6% |
+| unseen_inpainting | LayerNorm-tuned CLIP | **0.998** | **2.0%** | **0.4%** |
+
+The tuned model beats the frozen probe on every protocol, most on unseen text2img, where the
+BPCER at APCER ≤ 5% falls from 24.0% to 4.5%. Training took 15.9 to 21.5 minutes per protocol. The tuned parameters and each report are in the
+private model repository `paulohenriquevn/face-decision-clip-ln`.
