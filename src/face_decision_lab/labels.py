@@ -9,7 +9,7 @@ ATTACK_TYPES = {
     "print": "A printed photo of a face held in front of the camera.",
     "replay": "A face shown on a phone, tablet or monitor screen held in front of the camera.",
     "mask": "A physical mask, paper cutout or prosthetic imitating a person's face.",
-    "face_swap": "A face digitally replaced with another person's face.",
+    "face_swap": "A face region digitally replaced with another face, real or generated.",
     "face_reenactment": "A real face digitally driven to change its expression or mouth movement.",
     "fully_synthetic": "A face generated entirely by a generative model, with no real source photo.",
 }

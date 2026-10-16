@@ -7,7 +7,7 @@ from pathlib import Path
 from .errors import ManifestError
 from .labels import ATTACK_TYPES, BONA_FIDE
 
-COLUMNS = ("image_path", "attack_type", "subject_id", "video_id", "source_dataset")
+COLUMNS = ("image_path", "attack_type", "subject_id", "video_id", "source_dataset", "generator")
 
 
 @dataclass(frozen=True)
@@ -19,6 +19,9 @@ class FaceSample:
     subject_id: str
     video_id: str
     source_dataset: str
+    # What produced the capture inside its dataset: a manipulation method ("insight", "text2img")
+    # or an attack instrument ("silicone_mask"). Metrics break down by it.
+    generator: str
 
     @property
     def is_bona_fide(self) -> bool:

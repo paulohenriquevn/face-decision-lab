@@ -7,15 +7,17 @@ license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.26",
+    "opencv-python-headless>=4.9",
     "pillow>=10",
     "scikit-learn>=1.4",
 ]
 
 [project.optional-dependencies]
-# Face cropping from videos. Heavy (TensorFlow), so it stays out of the core install.
-extract = [
-    "deepface>=0.0.93",
-    "opencv-python>=4.9",
+# Dataset build: face detection and the Hugging Face upload.
+build = [
+    "datasets>=3",
+    "huggingface_hub>=0.30",
+    "retina-face>=0.0.19",
 ]
 
 [dependency-groups]
@@ -42,5 +44,7 @@ select = ["E", "F", "I", "B", "UP"]
 testpaths = ["tests"]
 
 [tool.ruff.lint.per-file-ignores]
+# The dataset card template holds Markdown table rows.
+"src/face_decision_lab/hub.py" = ["E501"]
 # The install cell is copied verbatim from Unsloth's Colab notebooks, which pin a working setup.
 "notebooks/*.ipynb" = ["I001", "E401", "E501", "E701", "E702", "E722"]

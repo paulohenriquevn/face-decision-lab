@@ -52,6 +52,7 @@ def write_smoke_dataset(
                         subject_id=subject,
                         video_id=f"{subject}_video",
                         source_dataset=source,
+                        generator="noise",
                     )
                 )
     write_manifest(samples, output_dir / "manifest.csv")

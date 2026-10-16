@@ -3,7 +3,7 @@ import pytest
 from face_decision_lab.errors import ManifestError
 from face_decision_lab.manifest import load_manifest, write_manifest
 
-HEADER = "image_path,attack_type,subject_id,video_id,source_dataset\n"
+HEADER = "image_path,attack_type,subject_id,video_id,source_dataset,generator\n"
 
 
 def test_manifest_round_trips_samples(tmp_path, make_sample):
@@ -20,7 +20,7 @@ def test_manifest_round_trips_samples(tmp_path, make_sample):
 
 def test_manifest_rejects_unknown_attack_type(tmp_path):
     path = tmp_path / "manifest.csv"
-    path.write_text(HEADER + "a.png,deepfake,s1,v1,ds_a\n")
+    path.write_text(HEADER + "a.png,deepfake,s1,v1,ds_a,camera\n")
 
     with pytest.raises(ManifestError, match="line 2: attack_type 'deepfake'"):
         load_manifest(path)
@@ -28,7 +28,7 @@ def test_manifest_rejects_unknown_attack_type(tmp_path):
 
 def test_manifest_rejects_empty_subject(tmp_path):
     path = tmp_path / "manifest.csv"
-    path.write_text(HEADER + "a.png,print,,v1,ds_a\n")
+    path.write_text(HEADER + "a.png,print,,v1,ds_a,camera\n")
 
     with pytest.raises(ManifestError, match=r"line 2: empty or missing columns \['subject_id'\]"):
         load_manifest(path)

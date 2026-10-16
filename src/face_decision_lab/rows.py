@@ -7,8 +7,16 @@ from .labels import QUESTIONS, STATE
 from .manifest import FaceSample
 
 
-def decision_row(sample: FaceSample, image_root: str | Path) -> dict:
-    """One training row: the image, the fixed state, both questions and their gold answers."""
+def local_image(sample: FaceSample, image_root: str | Path) -> dict:
+    """Image reference for a crop stored on disk under image_root."""
+    return {"path": str(Path(image_root) / sample.image_path)}
+
+
+def decision_row(sample: FaceSample, image) -> dict:
+    """One training row: the image, the fixed state, both questions and their gold answers.
+
+    image is anything FastDecisionModel accepts: a PIL image, a data URL, or a {"bytes", "path"} dict.
+    """
     return {
         "state": STATE,
         "questions": QUESTIONS,
@@ -16,8 +24,24 @@ def decision_row(sample: FaceSample, image_root: str | Path) -> dict:
             "is_bona_fide": "true" if sample.is_bona_fide else "false",
             "attack_type": sample.attack_type,
         },
-        "images": [{"path": str(Path(image_root) / sample.image_path)}],
+        "images": [image],
     }
+
+
+def open_image(image):
+    """Opens an image reference ({"path"} or {"bytes"} dict) as an RGB PIL image."""
+    import io
+
+    from PIL import Image
+
+    if image.get("bytes") is not None:
+        source = io.BytesIO(image["bytes"])
+    elif image.get("path"):
+        source = image["path"]
+    else:
+        raise ValueError(f"image reference has neither bytes nor path: {image!r}")
+    with Image.open(source) as opened:
+        return opened.convert("RGB")
 
 
 def attack_score(answers: dict) -> float:

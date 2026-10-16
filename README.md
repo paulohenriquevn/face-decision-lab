@@ -26,7 +26,11 @@ Research only. Nothing here has been trained or measured yet. The plan and its p
 | `src/face_decision_lab/splits.py` | Subject-level and cross-dataset splits with no leakage |
 | `src/face_decision_lab/rows.py` | Turns samples into training rows and answers into attack scores |
 | `src/face_decision_lab/metrics.py` | APCER, BPCER, ACER, AUC and EER |
-| `src/face_decision_lab/extract.py` | Samples video frames and saves face crops with DeepFace |
+| `src/face_decision_lab/faces.py` | RetinaFace detection and the standard 256x256 face crop |
+| `src/face_decision_lab/sources/` | Adapters mapping each source dataset to labels and subjects |
+| `src/face_decision_lab/build.py` | Resumable dataset build: crops, manifest and detection report |
+| `src/face_decision_lab/hub.py` | Uploads the build as a private Hugging Face dataset and loads it back |
+| `notebooks/build_dataset.ipynb` | Builds the dataset on a Colab GPU and uploads it |
 | `notebooks/train_decision_model.ipynb` | Trains, calibrates and evaluates on Colab |
 
 ## Running
@@ -39,10 +43,15 @@ uv run pytest
 uv run ruff check .
 ```
 
-Training runs on Colab Pro (L4 or A100). Open `notebooks/train_decision_model.ipynb` in Colab; it
-installs this package from GitHub. With `SMOKE = True` (the default) it runs on generated noise
-images and needs no data, which checks the setup on the GPU. For a real run, prepare the data as
-described in [docs/data.md](docs/data.md), put it in Google Drive and set `SMOKE = False`.
+Both notebooks run on Colab Pro (L4 or A100) and install this package from GitHub.
+
+1. `notebooks/train_decision_model.ipynb` with `SMOKE = True` (the default) runs on generated noise
+   images and needs no data. It checks the setup on the GPU.
+2. `notebooks/build_dataset.ipynb` crops the source datasets and uploads them as a private Hugging
+   Face dataset. See [docs/data.md](docs/data.md) for sources, labels and the crop.
+3. `notebooks/train_decision_model.ipynb` with `SMOKE = False` trains on that dataset.
+
+Both read a Colab secret `HF_TOKEN` to reach the private dataset.
 
 ## Licenses
 
