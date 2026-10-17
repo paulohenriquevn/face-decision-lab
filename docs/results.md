@@ -135,20 +135,23 @@ LayerNorm-tuned CLIP detector, at 317 ms predict p95. Its attack_type accuracy h
 never saw the `fully_synthetic` label during training, so it names the unseen generator wrongly
 even when it flags it as an attack.
 
-## 2026-10-17: GenD loss and longer training on an unseen generator
+## 2026-10-17: GenD loss and longer training on unseen generators
 
 `clip_layernorm_detector.ipynb` at commit 6578bbd: the GenD objective (cross entropy, 0.1
 alignment, 0.5 uniformity) on the 1024-dimensional pooled features, three epochs, batch 128,
 warm-up and cosine schedule, and augmentation (flip, affine, blur, color jitter, JPEG). Same
-`unseen_insight` protocol and 4,000 test crops as the first LayerNorm-tuned run.
+protocols and 4,000 test crops as the first LayerNorm-tuned run.
 
-| Model | AUC | EER | BPCER at APCER ≤ 5% |
-|---|---|---|---|
-| Frozen CLIP probe | 0.966 | 9.6% | 22.4% |
-| LayerNorm-tuned CLIP, 1 epoch, batch 32, cross entropy | **0.975** | **6.9%** | **13.6%** |
-| LayerNorm-tuned CLIP, GenD loss, 3 epochs, batch 128, augmentation | 0.963 | 8.0% | 28.0% |
+| Protocol | Model | AUC | EER | BPCER at APCER ≤ 5% |
+|---|---|---|---|---|
+| unseen_insight | Frozen CLIP probe | 0.966 | 9.6% | 22.4% |
+| unseen_insight | LayerNorm-tuned CLIP, 1 epoch, batch 32, cross entropy | **0.975** | **6.9%** | **13.6%** |
+| unseen_insight | LayerNorm-tuned CLIP, GenD loss, 3 epochs, batch 128, augmentation | 0.963 | 8.0% | 28.0% |
+| unseen_text2img | Frozen CLIP probe | 0.956 | 11.7% | 24.0% |
+| unseen_text2img | LayerNorm-tuned CLIP, 1 epoch, batch 32, cross entropy | **0.989** | **4.7%** | **4.5%** |
+| unseen_text2img | LayerNorm-tuned CLIP, GenD loss, 3 epochs, batch 128, augmentation | 0.948 | 11.4% | 29.5% |
 
-The GenD recipe did worse. Four things changed at once (loss, epochs, batch size, augmentation),
+The GenD recipe did worse on both unseen generators. Four things changed at once (loss, epochs, batch size, augmentation),
 so this run cannot say which one hurt. The notebook now takes `LOSS` and names each run after its
 loss, epochs, batch size and augmentation, so the next runs can change one variable at a time.
 
