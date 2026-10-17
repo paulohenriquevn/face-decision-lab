@@ -24,7 +24,17 @@ build = [
 dev = [
     "pytest>=8",
     "ruff>=0.6",
+    # CPU build only, to unit test the training losses; Colab brings its own CUDA build.
+    "torch>=2.4",
 ]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [build-system]
 requires = ["hatchling"]

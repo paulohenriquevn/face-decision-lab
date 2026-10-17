@@ -14,7 +14,7 @@
 - CLIP ViT-L/14 linear probe baseline
 - Unseen-generator protocols that train without one manipulation method and test only on it
 - Option to train LoRA on the vision tower of the decision model
-- LayerNorm-tuned CLIP detector trained on paired real and fake batches
+- LayerNorm-tuned CLIP detector trained on paired real and fake batches with the GenD loss (cross entropy, alignment and uniformity) and augmentation, checkpointed every epoch
 - Decision model training pushes checkpoints to a private Hub repository and resumes from the last one
 - Upload of the trained adapter and its evaluation report to a private Hugging Face model repository
 - Smoke mode that runs the whole training pipeline on generated noise images, with no face data
