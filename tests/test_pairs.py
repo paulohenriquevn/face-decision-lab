@@ -67,3 +67,26 @@ def test_paired_batches_are_reproducible(make_sample):
 def test_paired_batches_reject_a_non_positive_size(make_sample):
     with pytest.raises(ValueError, match="batch_size must be positive"):
         paired_batches([], batch_size=0, seed=0)
+
+
+def test_faceforensics_original_and_its_manipulations_share_a_pair_key(make_sample):
+    from face_decision_lab.sources import faceforensics
+
+    paths = [
+        "original_sequences/youtube/c23/videos/071.mp4",
+        "manipulated_sequences/Deepfakes/c23/videos/071_054.mp4",
+        "manipulated_sequences/Face2Face/c23/videos/071_054.mp4",
+    ]
+
+    keys = {pair_key(_sample(make_sample, faceforensics.parse_path(p))) for p in paths}
+
+    assert keys == {"ffpp/071"}
+
+
+def test_faceforensics_videos_of_different_targets_keep_apart(make_sample):
+    from face_decision_lab.sources import faceforensics
+
+    first = faceforensics.parse_path("manipulated_sequences/Deepfakes/c23/videos/071_054.mp4")
+    second = faceforensics.parse_path("manipulated_sequences/Deepfakes/c23/videos/054_071.mp4")
+
+    assert pair_key(_sample(make_sample, first)) != pair_key(_sample(make_sample, second))

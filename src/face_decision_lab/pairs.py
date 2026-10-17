@@ -13,7 +13,10 @@ from .manifest import FaceSample
 
 def pair_key(sample: FaceSample) -> str:
     """The source a sample was made from. DeepFakeFace ids are "<generator>/<path>", so dropping the
-    generator leaves the shared photo path; other sources have no pairs and keep their own id."""
+    generator leaves the shared photo path. FaceForensics++ manipulations keep the target video, so
+    an original and every fake of it share "ffpp/<target>". Other sources keep their own id."""
+    if sample.source_dataset == "faceforensics":
+        return f"ffpp/{sample.subject_id.removeprefix('ffpp_')}"
     prefix = f"{sample.generator}/"
     return sample.video_id[len(prefix) :] if sample.video_id.startswith(prefix) else sample.video_id
 

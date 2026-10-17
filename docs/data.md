@@ -68,6 +68,25 @@ The test list labels real videos 1 and fakes 0; the adapter checks each label ag
 the video sits in. Access comes from the authors' form, for non-commercial research only, and the
 archive stays in the researcher's own Google Drive.
 
+## FaceForensics++
+
+`notebooks/build_faceforensics.ipynb` downloads the c23 videos of the 1,000 originals and the four
+manipulation methods of the paper with the authors' script, crops 16 frames per video with the same
+pipeline, and uploads them to a separate private dataset. The official train/val/test splits
+(360/70/70 pairs of sequences) ship with the package in `sources/data/faceforensics_splits.json`
+(MIT, from the authors' repository).
+
+| Path | Label | Subject |
+|---|---|---|
+| `original_sequences/youtube/c23/videos/<target>.mp4` | `bona_fide`, generator `ffpp_original` | `ffpp_<target>` |
+| `manipulated_sequences/{Deepfakes,FaceSwap,FaceShifter}/c23/videos/<target>_<source>.mp4` | `face_swap` | `ffpp_<target>` |
+| `manipulated_sequences/{Face2Face,NeuralTextures}/c23/videos/<target>_<source>.mp4` | `face_reenactment` | `ffpp_<target>` |
+
+A manipulated video keeps the target video's body and background, so its subject is the target, and
+batches keep an original with every manipulation of it (`pairs.pair_key`). The protocols use the
+four original methods only; the adapter also reads FaceShifter. The download URL arrives by email
+after the access form and lives in a Colab secret, never in this repository.
+
 Unofficial copies of FaceForensics++, Celeb-DF and CelebA-Spoof on the Hub are left out: they skip
 the access agreements of the original authors.
 
@@ -78,7 +97,6 @@ before downloading. None of them may train a commercial model.
 
 | Dataset | Attacks it covers | Label mapping |
 |---|---|---|
-| FaceForensics++ | face swap, reenactment | `original` → `bona_fide`; Deepfakes, FaceSwap, FaceShifter → `face_swap`; Face2Face, NeuralTextures → `face_reenactment` |
 | DF40 | 40 forgery methods | per method; check the dataset's method list |
 | OULU-NPU | print, replay | access type 1 → `bona_fide`; 2 and 3 → `print`; 4 and 5 → `replay` |
 | CelebA-Spoof | print, replay, mask | photo, poster, A4 → `print`; PC, pad, phone → `replay`; masks → `mask` |

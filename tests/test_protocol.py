@@ -167,3 +167,80 @@ def test_standard_protocols_ignore_test_only_datasets(make_sample, protocol):
     lab, celebdf = _with_celebdf(make_sample, 900, 10)
 
     assert protocol_split(lab + celebdf, protocol) == protocol_split(lab, protocol)
+
+
+def _ffpp(make_sample):
+    from face_decision_lab.sources import faceforensics
+
+    pairs = [pair for split in ("train", "val", "test") for pair in faceforensics.OFFICIAL_SPLITS[split][:3]]
+    paths = []
+    for target, source in pairs:
+        paths.append(f"original_sequences/youtube/c23/videos/{target}.mp4")
+        for method in ("Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures", "FaceShifter"):
+            paths.append(f"manipulated_sequences/{method}/c23/videos/{target}_{source}.mp4")
+    items = [faceforensics.parse_path(p) for p in paths]
+    return [
+        make_sample(
+            attack_type=i.attack_type,
+            subject=i.subject_id,
+            video=i.video_id,
+            source=i.source_dataset,
+            path=f"{i.video_id}_{frame}.jpg",
+            generator=i.generator,
+        )
+        for i in items
+        for frame in range(2)
+    ]
+
+
+def test_lab_protocols_ignore_faceforensics(make_sample):
+    lab, _ = _with_celebdf(make_sample, 900, 1)
+
+    assert protocol_split(lab + _ffpp(make_sample), "subject_holdout") == protocol_split(
+        lab, "subject_holdout"
+    )
+
+
+def test_ffpp_protocol_follows_the_official_splits(make_sample):
+    from face_decision_lab.sources import faceforensics
+
+    train, calibration, test = protocol_split(_ffpp(make_sample), "ffpp")
+
+    assert {faceforensics.official_split(s) for s in train} == {"train"}
+    assert {faceforensics.official_split(s) for s in calibration} == {"val"}
+    assert {faceforensics.official_split(s) for s in test} == {"test"}
+
+
+def test_ffpp_protocol_uses_the_four_original_methods_only(make_sample):
+    train, calibration, test = protocol_split(_ffpp(make_sample), "ffpp")
+
+    assert "ffpp_faceshifter" not in {s.generator for s in train + calibration + test}
+
+
+def test_ffpp_to_celebdf_trains_on_ffpp_and_tests_on_celebdf(make_sample):
+    _, celebdf = _with_celebdf(make_sample, 30, 4)
+    ffpp = _ffpp(make_sample)
+
+    train, _, test = protocol_split(ffpp + celebdf, "ffpp_to_celebdf")
+
+    assert {s.source_dataset for s in train} == {"faceforensics"}
+    assert test == celebdf
+
+
+def test_lab_ffpp_to_celebdf_trains_on_both_training_sides(make_sample):
+    lab, celebdf = _with_celebdf(make_sample, 900, 4)
+    ffpp = _ffpp(make_sample)
+
+    train, _, test = protocol_split(lab + ffpp + celebdf, "lab_ffpp_to_celebdf")
+
+    lab_train = protocol_split(lab, "subject_holdout")[0]
+    ffpp_train = protocol_split(ffpp, "ffpp")[0]
+    assert sorted(train, key=lambda s: s.image_path) == sorted(
+        lab_train + ffpp_train, key=lambda s: s.image_path
+    )
+    assert test == celebdf
+
+
+def test_ffpp_protocol_needs_faceforensics_samples(make_sample):
+    with pytest.raises(ValueError, match="no 'faceforensics' samples"):
+        protocol_split(_samples(make_sample, 900), "ffpp")

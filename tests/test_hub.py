@@ -38,3 +38,7 @@ def test_dataset_card_lists_only_the_sources_present(make_sample):
 def test_dataset_card_rejects_a_source_without_a_license_row(make_sample):
     with pytest.raises(ValueError, match="no license row for source_dataset 'ds_unknown'"):
         dataset_card([make_sample(source="ds_unknown")], {})
+
+
+def test_dataset_card_has_a_license_row_for_faceforensics(make_sample):
+    assert "FaceForensics++" in dataset_card([make_sample(source="faceforensics")], {})

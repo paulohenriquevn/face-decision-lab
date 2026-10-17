@@ -33,20 +33,44 @@ CROSS_DATASET_PROTOCOLS = {
     "cross_celebdf": "celebdf",
 }
 
+# FaceForensics++ protocols follow its official splits. "ffpp" is the in-domain test; the others
+# test on Celeb-DF, the standard cross-dataset benchmark, after training on FaceForensics++ alone or
+# together with the lab data. Only the four methods of the original paper enter, as in the
+# literature these numbers are compared with; FaceShifter is left out.
+FFPP_PROTOCOLS = ("ffpp", "ffpp_to_celebdf", "lab_ffpp_to_celebdf")
+FFPP_GENERATORS = frozenset(
+    {"ffpp_original", "ffpp_deepfakes", "ffpp_faceswap", "ffpp_face2face", "ffpp_neuraltextures"}
+)
+
+# Datasets with their own test role; the lab's subject split never draws from them, since mixed in
+# they would change the subject shuffle and the split would no longer be the one every other model
+# was scored on.
+EXTERNAL_DATASETS = frozenset({"celebdf", "faceforensics"})
+
+
+def external_datasets(protocol: str) -> frozenset[str]:
+    """The external datasets a protocol needs loaded next to the lab data."""
+    if protocol in CROSS_DATASET_PROTOCOLS:
+        return frozenset({CROSS_DATASET_PROTOCOLS[protocol]})
+    if protocol == "ffpp":
+        return frozenset({"faceforensics"})
+    if protocol in FFPP_PROTOCOLS:
+        return frozenset({"faceforensics", "celebdf"})
+    return frozenset()
+
 
 def protocol_split(
     samples: list[FaceSample], protocol: str = "subject_holdout"
 ) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
-    """Train, calibration and the capped test subset that every model is scored on."""
+    """Train, calibration and the test side that every model is scored on."""
     if protocol in CROSS_DATASET_PROTOCOLS:
         return _cross_dataset_split(samples, CROSS_DATASET_PROTOCOLS[protocol])
+    if protocol in FFPP_PROTOCOLS:
+        return _ffpp_split(samples, protocol)
     if protocol not in PROTOCOLS:
-        known = sorted(PROTOCOLS) + sorted(CROSS_DATASET_PROTOCOLS)
+        known = sorted(PROTOCOLS) + sorted(CROSS_DATASET_PROTOCOLS) + sorted(FFPP_PROTOCOLS)
         raise ValueError(f"unknown protocol {protocol!r}; choose one of {known}")
-    # Test-only datasets never enter a standard protocol: mixed in, they would change the subject
-    # shuffle, so the split would no longer be the one every other model was scored on.
-    test_only = set(CROSS_DATASET_PROTOCOLS.values())
-    samples = [s for s in samples if s.source_dataset not in test_only]
+    samples = [s for s in samples if s.source_dataset not in EXTERNAL_DATASETS]
     held_out = PROTOCOLS[protocol]
     train, calibration, test = standard_split(samples, TEST_FRACTION, CALIBRATION_FRACTION, SEED)
     if held_out:
@@ -56,14 +80,35 @@ def protocol_split(
     return train, calibration, capped(test, MAX_TEST_SAMPLES, SEED)
 
 
+def _from(samples: list[FaceSample], dataset: str) -> list[FaceSample]:
+    chosen = [s for s in samples if s.source_dataset == dataset]
+    if not chosen:
+        raise ValueError(f"no {dataset!r} samples; load that dataset alongside the lab one")
+    return chosen
+
+
 def _cross_dataset_split(
     samples: list[FaceSample], held_out: str
 ) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
-    test = [s for s in samples if s.source_dataset == held_out]
-    if not test:
-        raise ValueError(f"no {held_out!r} samples to test on; load that dataset alongside the lab one")
-    train, calibration, _ = protocol_split([s for s in samples if s.source_dataset != held_out])
+    test = _from(samples, held_out)
+    train, calibration, _ = protocol_split(samples, "subject_holdout")
     return train, calibration, test
+
+
+def _ffpp_split(
+    samples: list[FaceSample], protocol: str
+) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
+    from .sources.faceforensics import official_split
+
+    ffpp = [s for s in _from(samples, "faceforensics") if s.generator in FFPP_GENERATORS]
+    sides = {name: [s for s in ffpp if official_split(s) == name] for name in ("train", "val", "test")}
+    if protocol == "ffpp":
+        return sides["train"], sides["val"], sides["test"]
+    celebdf = _from(samples, "celebdf")
+    if protocol == "ffpp_to_celebdf":
+        return sides["train"], sides["val"], celebdf
+    lab_train, lab_calibration, _ = protocol_split(samples, "subject_holdout")
+    return lab_train + sides["train"], lab_calibration + sides["val"], celebdf
 
 
 def video_scores(samples: list[FaceSample], scores: list[float]) -> tuple[list[str], list[float]]:

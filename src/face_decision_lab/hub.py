@@ -53,6 +53,8 @@ SOURCE_ROWS = {
     "| real IMDB-WIKI photos, InsightFace swaps, SD inpainting, SD 1.5 images |",
     "axondata": "| [AxonData/face-anti-spoofing-dataset](https://huggingface.co/datasets/AxonData/face-anti-spoofing-dataset) "
     "| CC BY-NC 4.0 | selfies, replay and mask attacks (small sample) |",
+    "faceforensics": "| [FaceForensics++](https://github.com/ondyari/FaceForensics) c23 | research use only, "
+    "no redistribution (terms signed per researcher) | original YouTube videos and their manipulations |",
     "celebdf": "| [Celeb-DF v2](https://github.com/yuezunli/celeb-deepfakeforensics) | research use only, "
     "no redistribution (terms signed per researcher) | frames of the 518 official test videos |",
 }
