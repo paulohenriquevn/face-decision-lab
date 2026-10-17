@@ -189,3 +189,27 @@ The same GenD checkpoint on the lab protocols (4,000 test crops each, 1.3x crop)
 
 Each detector fails on the other's domain: GenD misses diffusion images, the lab detectors miss
 video face swaps. A detector that holds up on both is the gap worth working on.
+
+## 2026-10-17: fine-tuning the official GenD checkpoint on the lab data
+
+`clip_layernorm_detector.ipynb` at commit 7c5529e with `INIT_FROM = "gend_official"`: the
+official GenD weights, one epoch on the lab data at the 1.3x face margin, GenD loss, batch 128,
+peak learning rate 1e-4 with 10% warm-up, augmentation. The `cross_celebdf` model also scores
+`subject_holdout`, whose training side is the same. Run tag
+`gend_official-gend-e1-b128-lr0.0001` in `paulohenriquevn/face-decision-clip-ln`.
+
+| Model | subject_holdout AUC / BPCER | unseen_text2img AUC / BPCER | Celeb-DF video AUC / frame AUC |
+|---|---|---|---|
+| LayerNorm-tuned CLIP v1 (lab data) | **0.998 / 1.2%** | **0.989 / 4.5%** | 0.658 / 0.620 |
+| Official GenD (FF++) | 0.898 / 70.8% | 0.807 / 76.0% | **0.951 / 0.894** |
+| Official GenD + one epoch on lab data | 0.971 / 14.2% | 0.859 / 68.5% | 0.929 / 0.878 |
+
+BPCER is at APCER ≤ 5%. The fine-tuned model is the first that works on both domains, at a cost on
+each: Celeb-DF video AUC drops by 0.022, and on DeepFakeFace it stays far behind the detector
+trained on the lab data alone, most of all on the unseen diffusion generator.
+
+The first scoring of `subject_holdout` in this run was wrong: with Celeb-DF crops loaded next to the
+lab data, the standard split drew its subjects over both datasets, so its test side held Celeb-DF
+crops and subjects from the training side (it reported AUC 0.956). Commit 9ca1445 keeps test-only
+datasets out of the standard splits, and the table shows the model rescored on the canonical
+4,000 crops. The `unseen_text2img` run was stopped after 22 steps and restarted on the fixed split.
