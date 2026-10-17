@@ -117,3 +117,20 @@ below the LayerNorm-tuned CLIP detector, with predict p95 at 326 ms on an L4. Th
 gate set in the plan (AUC above 0.981, the CLIP probe at 1,920 rows), so the decision model remains
 a candidate detector. The protocols that matter for generalization (`unseen_text2img`,
 `unseen_insight`) have not been run for it yet.
+
+## 2026-10-17: decision model on an unseen generator
+
+`unseen_text2img`: trained without any Stable Diffusion 1.5 image, tested on bona fide crops and
+SD 1.5 crops only (4,000). Decision model with language and vision LoRA, 600 steps (19,200 rows).
+The run survived three Colab session losses by resuming from Hub checkpoints (every 100 steps).
+
+| Model | Training rows | AUC | EER | BPCER at APCER ≤ 5% |
+|---|---|---|---|---|
+| Frozen CLIP linear probe | 58,686 | 0.956 | 11.7% | 24.0% |
+| Decision model, vision LoRA, 600 steps | 19,200 | 0.972 | 8.6% | 13.1% |
+| LayerNorm-tuned CLIP | 58,686 | **0.989** | **4.7%** | **4.5%** |
+
+The decision model generalizes better than the frozen CLIP probe and worse than the
+LayerNorm-tuned CLIP detector, at 317 ms predict p95. Its attack_type accuracy here is 46.4%: it
+never saw the `fully_synthetic` label during training, so it names the unseen generator wrongly
+even when it flags it as an attack.
