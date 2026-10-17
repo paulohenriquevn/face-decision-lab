@@ -11,7 +11,7 @@
 - Celeb-DF v2 adapter and a `cross_celebdf` protocol that trains on the lab data and tests on the official Celeb-DF v2 test videos
 - Video-level AUC (mean frame score per video) in every evaluation report
 - `tighten_crop` to reframe a built crop to the face margin a pretrained detector expects
-- Scoring of the official GenD CLIP ViT-L/14 checkpoint under the lab protocols
+- Scoring of the official GenD CLIP ViT-L/14 checkpoint under the lab protocols, alone and fused with the lab detector by the larger of the two scores
 - Upload of the build as a private Hugging Face dataset, and training from it
 - Evaluation broken down by generator as well as by attack type
 - Shared evaluation protocol (split, test subset, APCER limit) so every model is scored on the same subjects
