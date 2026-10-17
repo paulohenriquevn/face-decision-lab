@@ -51,6 +51,23 @@ metrics as a format check. Its two CC BY 4.0 sub-datasets (`3D_paper_mask_attack
 and `Anti_Spoofing_Cut_print_attack`) hold the same files as folders of this one, so they are not
 added again.
 
+## Unseen test set: Celeb-DF v2
+
+`notebooks/build_celebdf_test.ipynb` crops the 518 official Celeb-DF v2 test videos
+(`List_of_testing_videos.txt`: 178 real, 340 synthesized) with the same pipeline, 16 frames per
+video, into a separate private dataset. Nothing trains on it. It is the test side of the
+`cross_celebdf` protocol in `face_decision_lab.protocol`.
+
+| Folder | Label | Subject |
+|---|---|---|
+| `Celeb-real/id<N>_<clip>.mp4` | `bona_fide`, generator `celeb_real` | `celebdf_id<N>` |
+| `YouTube-real/<clip>.mp4` | `bona_fide`, generator `youtube_real` | one per video |
+| `Celeb-synthesis/id<T>_id<S>_<clip>.mp4` | `face_swap`, generator `celebdf_synthesis` | `celebdf_id<T>`, the person in the target clip |
+
+The test list labels real videos 1 and fakes 0; the adapter checks each label against the folder
+the video sits in. Access comes from the authors' form, for non-commercial research only, and the
+archive stays in the researcher's own Google Drive.
+
 Unofficial copies of FaceForensics++, Celeb-DF and CelebA-Spoof on the Hub are left out: they skip
 the access agreements of the original authors.
 
@@ -62,7 +79,6 @@ before downloading. None of them may train a commercial model.
 | Dataset | Attacks it covers | Label mapping |
 |---|---|---|
 | FaceForensics++ | face swap, reenactment | `original` → `bona_fide`; Deepfakes, FaceSwap, FaceShifter → `face_swap`; Face2Face, NeuralTextures → `face_reenactment` |
-| Celeb-DF v2 | face swap | `Celeb-real`, `YouTube-real` → `bona_fide`; `Celeb-synthesis` → `face_swap` |
 | DF40 | 40 forgery methods | per method; check the dataset's method list |
 | OULU-NPU | print, replay | access type 1 → `bona_fide`; 2 and 3 → `print`; 4 and 5 → `replay` |
 | CelebA-Spoof | print, replay, mask | photo, poster, A4 → `print`; PC, pad, phone → `replay`; masks → `mask` |

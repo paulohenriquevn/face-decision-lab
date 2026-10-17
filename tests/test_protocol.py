@@ -96,3 +96,65 @@ def test_unseen_generator_protocol_keeps_the_subject_holdout(make_sample):
 def test_protocol_split_rejects_an_unknown_protocol(make_sample):
     with pytest.raises(ValueError, match="unknown protocol"):
         protocol_split(_samples(make_sample, 30), "cross_universe")
+
+
+def _with_celebdf(make_sample, lab_count, celebdf_videos):
+    celebdf = [
+        make_sample(
+            attack_type="face_swap" if v % 2 else "bona_fide",
+            subject=f"celebdf_id{v}",
+            video=f"celebdf/{v}",
+            source="celebdf",
+            path=f"celebdf/{v}_{frame}.jpg",
+            generator="celebdf_synthesis" if v % 2 else "celeb_real",
+        )
+        for v in range(celebdf_videos)
+        for frame in range(16)
+    ]
+    return _samples(make_sample, lab_count), celebdf
+
+
+def test_cross_dataset_protocol_trains_without_the_held_out_dataset(make_sample):
+    lab, celebdf = _with_celebdf(make_sample, 900, 10)
+
+    train, calibration, _ = protocol_split(lab + celebdf, "cross_celebdf")
+
+    assert "celebdf" not in {s.source_dataset for s in train + calibration}
+
+
+def test_cross_dataset_protocol_tests_on_every_crop_of_the_held_out_dataset(make_sample):
+    lab, celebdf = _with_celebdf(make_sample, 900, 300)
+
+    _, _, test = protocol_split(lab + celebdf, "cross_celebdf")
+
+    assert test == celebdf
+
+
+def test_cross_dataset_protocol_trains_on_the_subject_holdout_training_side(make_sample):
+    lab, celebdf = _with_celebdf(make_sample, 900, 10)
+
+    train, calibration, _ = protocol_split(lab + celebdf, "cross_celebdf")
+
+    assert (train, calibration) == protocol_split(lab, "subject_holdout")[:2]
+
+
+def test_cross_dataset_protocol_needs_the_held_out_dataset(make_sample):
+    with pytest.raises(ValueError, match="no 'celebdf' samples"):
+        protocol_split(_samples(make_sample, 900), "cross_celebdf")
+
+
+def test_evaluation_report_scores_videos_by_their_mean_frame_score(make_sample):
+    samples = [
+        make_sample(attack_type="bona_fide", video="real", path="r0.jpg"),
+        make_sample(attack_type="bona_fide", video="real", path="r1.jpg"),
+        make_sample(attack_type="face_swap", video="fake", path="f0.jpg", generator="insight"),
+        make_sample(attack_type="face_swap", video="fake", path="f1.jpg", generator="insight"),
+    ]
+    # One real frame outscores one fake frame, so frame AUC < 1; the video means are 0.35 and 0.65.
+    scores = [0.1, 0.6, 0.5, 0.8]
+
+    report = evaluation_report(samples, scores)
+
+    assert report["auc"] < 1.0
+    assert report["video_auc"] == 1.0
+    assert report["videos"] == 2

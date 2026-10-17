@@ -14,8 +14,9 @@ DeepFace's Facenet512.
 
 ## Status
 
-Research only. Nothing here has been trained or measured yet. The plan and its pass criteria are in
-[docs/experiment-plan.md](docs/experiment-plan.md).
+Research only. The plan and its pass criteria are in
+[docs/experiment-plan.md](docs/experiment-plan.md); measured results are in
+[docs/results.md](docs/results.md).
 
 ## Layout
 
@@ -34,6 +35,7 @@ Research only. Nothing here has been trained or measured yet. The plan and its p
 | `src/face_decision_lab/baselines.py` | Linear probe baseline |
 | `src/face_decision_lab/pairs.py` | Batches that keep a real photo with the fakes made from it |
 | `notebooks/build_dataset.ipynb` | Builds the dataset on a Colab GPU and uploads it |
+| `notebooks/build_celebdf_test.ipynb` | Crops the official Celeb-DF v2 test videos into a separate private dataset |
 | `notebooks/clip_baseline.ipynb` | Scores the CLIP linear probe under the same protocol |
 | `notebooks/clip_layernorm_detector.ipynb` | Trains and scores a LayerNorm-tuned CLIP detector (GenD recipe) per protocol |
 | `notebooks/train_decision_model.ipynb` | Trains, calibrates and evaluates on Colab |

@@ -7,10 +7,12 @@ Experiments use the splits in `face_decision_lab.splits` and the metrics in
 `face_decision_lab.metrics`. Results are reported as measured on the test side, with the number of
 test crops and APCER broken down by attack type and by generator.
 
-The target protocol is cross-dataset: train on some datasets, test on others. Until a second
-deepfake dataset arrives through its authors, the current dataset (DeepFakeFace plus the AxonData
-sample, see `docs/data.md`) supports only a subject holdout: new people, same generators. A result on
-it says nothing about unseen manipulation methods.
+The target protocol is cross-dataset: train on some datasets, test on others. The training data
+(DeepFakeFace plus the AxonData sample, see `docs/data.md`) supports a subject holdout (new people,
+same generators) and the unseen-generator protocols (one DeepFakeFace method left out of training).
+`cross_celebdf` trains on the subject-holdout training side and tests on every crop of the official
+Celeb-DF v2 test videos: another dataset, another face-swap pipeline, video frames instead of photos.
+Its report adds `video_auc`, the AUC of the mean frame score per video.
 
 ## Baselines
 
@@ -18,7 +20,7 @@ The decision model only counts as an improvement if it beats these on the same s
 
 | Baseline | Attack family | Status |
 |---|---|---|
-| Linear probe on frozen CLIP image features | deepfake | not built |
+| Linear probe on frozen CLIP image features | deepfake | built, see `docs/results.md` |
 | DeepFace `anti_spoofing=True` (MiniFASNet) | print, replay | not built |
 
 ## Experiments
@@ -27,6 +29,7 @@ The decision model only counts as an improvement if it beats these on the same s
 |---|---|---|
 | 1 | Smoke run: notebook trains on generated noise images and scores the test split | the evaluation cell prints AUC, EER, BPCER at the APCER limit and APCER per attack type |
 | 1b | Subject holdout on the current dataset: decision model vs CLIP probe | decision model AUC is higher than the CLIP probe AUC on the same held-out subjects |
+| 2a | CLIP probe, GenD CLIP detector and decision model under `cross_celebdf` | frame AUC and video AUC of all three are reported on the same Celeb-DF crops |
 | 2 | Decision model vs CLIP probe, train FF++, test Celeb-DF v2 | decision model AUC is higher than the CLIP probe AUC on the same test crops |
 | 3 | Decision model vs MiniFASNet, train CelebA-Spoof, test OULU-NPU | decision model BPCER at APCER ≤ 5% is lower than MiniFASNet's |
 | 4 | Frozen vision tower as a limit | if experiments 2 and 3 fail, a run with vision layers unfrozen changes the result; otherwise the frozen encoder is ruled out as the cause |

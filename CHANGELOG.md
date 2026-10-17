@@ -8,6 +8,8 @@
 - ISO/IEC 30107-3 metrics: APCER per attack type, BPCER, ACER, BPCER at an APCER limit, AUC and EER
 - Dataset build that crops one face per image or video frame to a fixed 256x256 JPEG and reports dropped images per generator
 - Source adapters for DeepFakeFace and the AxonData anti-spoofing sample
+- Celeb-DF v2 adapter and a `cross_celebdf` protocol that trains on the lab data and tests on the official Celeb-DF v2 test videos
+- Video-level AUC (mean frame score per video) in every evaluation report
 - Upload of the build as a private Hugging Face dataset, and training from it
 - Evaluation broken down by generator as well as by attack type
 - Shared evaluation protocol (split, test subset, APCER limit) so every model is scored on the same subjects

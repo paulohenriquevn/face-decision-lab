@@ -26,13 +26,23 @@ PROTOCOLS = {
     "unseen_inpainting": frozenset({"inpainting"}),
 }
 
+# Cross-dataset protocols by name, each with the dataset it holds out. Training and calibration are
+# the subject_holdout ones, built from every other dataset; the test side is every crop of the held
+# out dataset, uncapped, so all frames of each video are there for the video-level score.
+CROSS_DATASET_PROTOCOLS = {
+    "cross_celebdf": "celebdf",
+}
+
 
 def protocol_split(
     samples: list[FaceSample], protocol: str = "subject_holdout"
 ) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
     """Train, calibration and the capped test subset that every model is scored on."""
+    if protocol in CROSS_DATASET_PROTOCOLS:
+        return _cross_dataset_split(samples, CROSS_DATASET_PROTOCOLS[protocol])
     if protocol not in PROTOCOLS:
-        raise ValueError(f"unknown protocol {protocol!r}; choose one of {sorted(PROTOCOLS)}")
+        known = sorted(PROTOCOLS) + sorted(CROSS_DATASET_PROTOCOLS)
+        raise ValueError(f"unknown protocol {protocol!r}; choose one of {known}")
     held_out = PROTOCOLS[protocol]
     train, calibration, test = standard_split(samples, TEST_FRACTION, CALIBRATION_FRACTION, SEED)
     if held_out:
@@ -42,11 +52,33 @@ def protocol_split(
     return train, calibration, capped(test, MAX_TEST_SAMPLES, SEED)
 
 
+def _cross_dataset_split(
+    samples: list[FaceSample], held_out: str
+) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
+    test = [s for s in samples if s.source_dataset == held_out]
+    if not test:
+        raise ValueError(f"no {held_out!r} samples to test on; load that dataset alongside the lab one")
+    train, calibration, _ = protocol_split([s for s in samples if s.source_dataset != held_out])
+    return train, calibration, test
+
+
+def video_scores(samples: list[FaceSample], scores: list[float]) -> tuple[list[str], list[float]]:
+    """One attack type and one score per video: the mean of its frame scores."""
+    by_video: dict[str, list[float]] = {}
+    types: dict[str, str] = {}
+    for sample, score in zip(samples, scores, strict=True):
+        by_video.setdefault(sample.video_id, []).append(score)
+        types[sample.video_id] = sample.attack_type
+    videos = sorted(by_video)
+    return [types[v] for v in videos], [sum(by_video[v]) / len(by_video[v]) for v in videos]
+
+
 def evaluation_report(samples: list[FaceSample], scores: list[float]) -> dict:
     """Metrics for attack scores (probability of attack) on the given samples."""
     types = [sample.attack_type for sample in samples]
     point = bpcer_at_apcer(scores, types, MAX_APCER)
     by_generator = [BONA_FIDE if sample.is_bona_fide else sample.generator for sample in samples]
+    video_types, per_video = video_scores(samples, scores)
     return {
         "samples": len(samples),
         "auc": auc(scores, types),
@@ -56,4 +88,7 @@ def evaluation_report(samples: list[FaceSample], scores: list[float]) -> dict:
         "threshold": point.threshold,
         "apcer_by_attack_type": point.apcer_by_type,
         "apcer_by_generator": operating_point(scores, by_generator, point.threshold).apcer_by_type,
+        # Frame scores averaged per video, the usual video-level number in deepfake papers.
+        "videos": len(per_video),
+        "video_auc": auc(per_video, video_types),
     }

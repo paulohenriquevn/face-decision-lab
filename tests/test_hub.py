@@ -1,3 +1,5 @@
+import pytest
+
 from face_decision_lab.hub import FIELDS, dataset_card, dataset_rows
 
 
@@ -15,12 +17,24 @@ def test_dataset_rows_carry_every_manifest_field_except_the_path(make_sample):
 
 
 def test_dataset_card_counts_rows_per_generator_and_label(make_sample):
-    samples = [make_sample(generator="insight", attack_type="face_swap")] * 2
+    samples = [make_sample(source="deepfakeface", generator="insight", attack_type="face_swap")] * 2
 
     card = dataset_card(samples, {"insight": {"saved": 2}})
 
-    assert "| ds_a | insight | face_swap | 2 |" in card
+    assert "| deepfakeface | insight | face_swap | 2 |" in card
 
 
 def test_dataset_card_marks_the_dataset_private(make_sample):
-    assert "Private on purpose" in dataset_card([make_sample()], {})
+    assert "Private on purpose" in dataset_card([make_sample(source="axondata")], {})
+
+
+def test_dataset_card_lists_only_the_sources_present(make_sample):
+    card = dataset_card([make_sample(source="celebdf", generator="celeb_real")], {})
+
+    assert "Celeb-DF" in card
+    assert "OpenRL/DeepFakeFace" not in card
+
+
+def test_dataset_card_rejects_a_source_without_a_license_row(make_sample):
+    with pytest.raises(ValueError, match="no license row for source_dataset 'ds_unknown'"):
+        dataset_card([make_sample(source="ds_unknown")], {})
