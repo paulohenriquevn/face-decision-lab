@@ -158,3 +158,12 @@ def test_evaluation_report_scores_videos_by_their_mean_frame_score(make_sample):
     assert report["auc"] < 1.0
     assert report["video_auc"] == 1.0
     assert report["videos"] == 2
+
+
+@pytest.mark.parametrize("protocol", ["subject_holdout", "unseen_text2img"])
+def test_standard_protocols_ignore_test_only_datasets(make_sample, protocol):
+    # Regression: with Celeb-DF crops loaded next to the lab data, subject_holdout drew its split
+    # over both, so its test side held Celeb-DF crops and lab subjects from the training side.
+    lab, celebdf = _with_celebdf(make_sample, 900, 10)
+
+    assert protocol_split(lab + celebdf, protocol) == protocol_split(lab, protocol)

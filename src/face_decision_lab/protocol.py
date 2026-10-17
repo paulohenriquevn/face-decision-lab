@@ -43,6 +43,10 @@ def protocol_split(
     if protocol not in PROTOCOLS:
         known = sorted(PROTOCOLS) + sorted(CROSS_DATASET_PROTOCOLS)
         raise ValueError(f"unknown protocol {protocol!r}; choose one of {known}")
+    # Test-only datasets never enter a standard protocol: mixed in, they would change the subject
+    # shuffle, so the split would no longer be the one every other model was scored on.
+    test_only = set(CROSS_DATASET_PROTOCOLS.values())
+    samples = [s for s in samples if s.source_dataset not in test_only]
     held_out = PROTOCOLS[protocol]
     train, calibration, test = standard_split(samples, TEST_FRACTION, CALIBRATION_FRACTION, SEED)
     if held_out:
