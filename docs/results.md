@@ -213,3 +213,27 @@ lab data, the standard split drew its subjects over both datasets, so its test s
 crops and subjects from the training side (it reported AUC 0.956). Commit 9ca1445 keeps test-only
 datasets out of the standard splits, and the table shows the model rescored on the canonical
 4,000 crops. The `unseen_text2img` run was stopped after 22 steps and restarted on the fixed split.
+
+## 2026-10-17: max fusion of the lab detector and official GenD
+
+`notebooks/score_pretrained_detectors.ipynb` at commit c5595bd. The fused attack score is the larger
+of the two probabilities: the v1 LayerNorm-tuned CLIP detector (the checkpoint trained for each lab
+protocol, and the `subject_holdout` one for `cross_celebdf`) and the official GenD checkpoint at the
+1.3x margin. Nothing is fitted. The same run reproduced every single-model number above from the
+versioned notebook. Reports: `paulohenriquevn/face-decision-clip-ln`, `pretrained/`.
+
+AUC and BPCER at APCER ≤ 5%; Celeb-DF also gives video AUC.
+
+| Model | subject_holdout | unseen_text2img | unseen_insight | unseen_inpainting | Celeb-DF frame / video AUC |
+|---|---|---|---|---|---|
+| v1 (lab data) | **0.998 / 1.2%** | **0.989 / 4.5%** | **0.975 / 13.6%** | **0.998 / 0.4%** | 0.620 / 0.658 |
+| Official GenD (FF++) | 0.898 / 70.8% | 0.807 / 76.0% | 0.946 / 36.5% | 0.910 / 44.9% | **0.894 / 0.951** |
+| Official GenD + one epoch on lab data | 0.971 / 14.2% | 0.859 / 68.5% | not run | not run | 0.878 / 0.929 |
+| Max fusion of v1 and GenD | 0.994 / 2.7% | 0.953 / 30.7% | 0.969 / 18.0% | 0.991 / 1.2% | 0.848 / 0.905 |
+
+No model wins every column. The fusion has the best worst case: its lowest AUC across the five
+tests is 0.905 (Celeb-DF video), against 0.859 for the fine-tuned GenD, 0.807 for GenD and 0.658
+for v1. Its cost is BPCER: GenD gives some DeepFakeFace bona fide photos high scores, and the
+maximum passes them through, so on unseen text2img BPCER at APCER ≤ 5% rises from 4.5% (v1) to
+30.7%. A fusion that learns how much to trust each detector, instead of taking the maximum, is the
+next thing to try; it needs a calibration set with both domains, which FaceForensics++ would supply.
