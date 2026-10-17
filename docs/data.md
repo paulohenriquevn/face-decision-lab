@@ -73,7 +73,7 @@ archive stays in the researcher's own Google Drive.
 `notebooks/build_faceforensics.ipynb` downloads the c23 videos of the 1,000 originals and the four
 manipulation methods of the paper with the authors' script, crops 16 frames per video with the same
 pipeline, and uploads them to a separate private dataset. The official train/val/test splits
-(360/70/70 pairs of sequences) ship with the package in `sources/data/faceforensics_splits.json`
+(360/70/70 pairs of sequences) ship with the package in `sources/faceforensics_splits.json`
 (MIT, from the authors' repository).
 
 | Path | Label | Subject |

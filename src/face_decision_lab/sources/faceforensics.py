@@ -6,8 +6,8 @@ built from them go to a private dataset.
 
 Layout written by the authors' download script: original_sequences/youtube/c23/videos/<target>.mp4
 and manipulated_sequences/<method>/c23/videos/<target>_<source>.mp4, where the face or expression
-of <source> is put into the video <target>. The official train/val/test splits (data/
-faceforensics_splits.json, MIT) list pairs of sequences, so a target and its source share a split.
+of <source> is put into the video <target>. The official train/val/test splits
+(faceforensics_splits.json, MIT) list pairs of sequences, so a target and its source share a split.
 """
 
 import json
@@ -33,7 +33,7 @@ _ORIGINAL = re.compile(rf"original_sequences/youtube/{COMPRESSION}/videos/(\d{{3
 _MANIPULATED = re.compile(rf"manipulated_sequences/(\w+)/{COMPRESSION}/videos/(\d{{3}})_(\d{{3}})\.mp4")
 
 OFFICIAL_SPLITS: dict[str, list[list[str]]] = json.loads(
-    resources.files(__package__).joinpath("data/faceforensics_splits.json").read_text()
+    resources.files(__package__).joinpath("faceforensics_splits.json").read_text()
 )
 _SPLIT_OF_SEQUENCE = {
     sequence: split for split, pairs in OFFICIAL_SPLITS.items() for pair in pairs for sequence in pair
