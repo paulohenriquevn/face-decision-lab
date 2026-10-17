@@ -145,3 +145,37 @@ def test_detector_maps_boxes_back_to_the_original_scale():
 
     # The 1280 px image is shrunk by half to fit 640 px, so the 10..50 box doubles.
     assert (box.x, box.y, box.w, box.h) == (20, 20, 80, 80)
+
+
+def test_tighten_crop_keeps_the_center_at_a_smaller_margin():
+    from PIL import Image
+
+    from face_decision_lab.faces import tighten_crop
+
+    image = Image.new("RGB", (256, 256))
+    image.putpixel((128, 128), (255, 0, 0))
+
+    tightened = tighten_crop(image, face_scale=1.3)
+
+    # 256 px hold the face box at 1.5x; at 1.3x the same box needs round(256 * 1.3 / 1.5) = 222 px.
+    assert tightened.size == (222, 222)
+    assert tightened.getpixel((128 - 17, 128 - 17)) == (255, 0, 0)
+
+
+def test_tighten_crop_at_the_build_margin_is_a_no_op():
+    from PIL import Image
+
+    from face_decision_lab.faces import CROP_FACE_SCALE, tighten_crop
+
+    image = Image.new("RGB", (256, 256), (1, 2, 3))
+
+    assert tighten_crop(image, face_scale=CROP_FACE_SCALE).size == (256, 256)
+
+
+def test_tighten_crop_cannot_add_margin_the_crop_does_not_have():
+    from PIL import Image
+
+    from face_decision_lab.faces import tighten_crop
+
+    with pytest.raises(ValueError, match="face_scale 1.8 is wider than the crop's 1.5"):
+        tighten_crop(Image.new("RGB", (256, 256)), face_scale=1.8)

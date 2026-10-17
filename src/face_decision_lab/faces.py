@@ -15,6 +15,8 @@ CROP_SIZE = 256
 # Context around the detected box: swap and inpainting artifacts sit on the face boundary.
 CROP_MARGIN = 0.25
 JPEG_QUALITY = 95
+# Side of a crop as a multiple of the face box side.
+CROP_FACE_SCALE = 1 + 2 * CROP_MARGIN
 # The largest face must be this many times larger than the next one, or the image is ambiguous.
 DOMINANCE = 2.0
 
@@ -86,6 +88,21 @@ def square_crop(
         ]
     interpolation = cv2.INTER_AREA if side > size else cv2.INTER_CUBIC
     return cv2.resize(canvas, (size, size), interpolation=interpolation)
+
+
+def tighten_crop(image, face_scale: float, crop_face_scale: float = CROP_FACE_SCALE):
+    """Center-crops a built crop (PIL image) down to a smaller margin around the face.
+
+    Pretrained detectors expect their own margin: GenD trained on face boxes grown to 1.3x, while
+    the lab's crops hold the box at CROP_FACE_SCALE. The face sits at the center of every crop, so
+    a center crop of side * face_scale / crop_face_scale gives the tighter framing.
+    """
+    if face_scale > crop_face_scale:
+        raise ValueError(f"face_scale {face_scale} is wider than the crop's {crop_face_scale}")
+    side = round(image.width * face_scale / crop_face_scale)
+    left = (image.width - side) // 2
+    top = (image.height - side) // 2
+    return image.crop((left, top, left + side, top + side))
 
 
 def encode_jpeg(crop: np.ndarray) -> bytes:

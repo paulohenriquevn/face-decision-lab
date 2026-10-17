@@ -134,3 +134,55 @@ The decision model generalizes better than the frozen CLIP probe and worse than 
 LayerNorm-tuned CLIP detector, at 317 ms predict p95. Its attack_type accuracy here is 46.4%: it
 never saw the `fully_synthetic` label during training, so it names the unseen generator wrongly
 even when it flags it as an attack.
+
+## 2026-10-17: GenD loss and longer training on an unseen generator
+
+`clip_layernorm_detector.ipynb` at commit 6578bbd: the GenD objective (cross entropy, 0.1
+alignment, 0.5 uniformity) on the 1024-dimensional pooled features, three epochs, batch 128,
+warm-up and cosine schedule, and augmentation (flip, affine, blur, color jitter, JPEG). Same
+`unseen_insight` protocol and 4,000 test crops as the first LayerNorm-tuned run.
+
+| Model | AUC | EER | BPCER at APCER ≤ 5% |
+|---|---|---|---|
+| Frozen CLIP probe | 0.966 | 9.6% | 22.4% |
+| LayerNorm-tuned CLIP, 1 epoch, batch 32, cross entropy | **0.975** | **6.9%** | **13.6%** |
+| LayerNorm-tuned CLIP, GenD loss, 3 epochs, batch 128, augmentation | 0.963 | 8.0% | 28.0% |
+
+The GenD recipe did worse. Four things changed at once (loss, epochs, batch size, augmentation),
+so this run cannot say which one hurt. The notebook now takes `LOSS` and names each run after its
+loss, epochs, batch size and augmentation, so the next runs can change one variable at a time.
+
+## 2026-10-17: cross-dataset test on Celeb-DF v2
+
+`cross_celebdf`: every crop of the 518 official Celeb-DF v2 test videos (8,285 crops, 16 frames per
+video; RetinaFace kept 99.9% of real frames and 100% of fake ones). The lab detectors train on the
+`subject_holdout` training side; the official GenD checkpoint (`yermandy/GenD_CLIP_L_14`, MIT)
+trained on FaceForensics++ c23. Video AUC averages the frame scores of each video. The scores were
+first measured in an interactive Colab session and saved to `paulohenriquevn/face-decision-clip-ln`
+under `cross_celebdf/`; `notebooks/score_pretrained_detectors.ipynb` reproduces them and writes to
+`pretrained/`.
+
+| Model | Trained on | Frame AUC | Video AUC | EER | BPCER at APCER ≤ 5% |
+|---|---|---|---|---|---|
+| Frozen CLIP probe | lab data | 0.617 | 0.633 | 42.4% | 89.9% |
+| LayerNorm-tuned CLIP v1 | lab data | 0.620 | 0.658 | 42.2% | 95.4% |
+| GenD CLIP ViT-L/14, crop at 1.5x | FF++ c23 | 0.878 | 0.943 | 19.5% | 63.2% |
+| GenD CLIP ViT-L/14, crop at 1.3x | FF++ c23 | **0.894** | **0.951** | **18.0%** | **50.5%** |
+
+The GenD paper reports 0.960 video AUC on Celeb-DF v2. Its checkpoint reaches 0.951 on the lab's
+crops, so the crop pipeline and the test set are sound, and the lab detectors' near-chance score
+comes from their training data: press photos and generated images do not teach what a face swap
+in a compressed video looks like. Videos from YouTube-real score almost as high as the fakes under
+the v1 detector (mean 0.416 against 0.490; Celeb-real 0.245).
+
+The same GenD checkpoint on the lab protocols (4,000 test crops each, 1.3x crop):
+
+| Protocol | GenD (FF++) AUC | GenD BPCER at APCER ≤ 5% | LayerNorm-tuned CLIP v1 AUC | v1 BPCER at APCER ≤ 5% |
+|---|---|---|---|---|
+| subject_holdout | 0.898 | 70.8% | **0.998** | **1.2%** |
+| unseen_text2img | 0.807 | 76.0% | **0.989** | **4.5%** |
+| unseen_insight | 0.946 | 36.5% | **0.975** | **13.6%** |
+| unseen_inpainting | 0.910 | 44.9% | **0.998** | **0.4%** |
+
+Each detector fails on the other's domain: GenD misses diffusion images, the lab detectors miss
+video face swaps. A detector that holds up on both is the gap worth working on.
