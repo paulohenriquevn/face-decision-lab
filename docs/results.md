@@ -237,3 +237,31 @@ for v1. Its cost is BPCER: GenD gives some DeepFakeFace bona fide photos high sc
 maximum passes them through, so on unseen text2img BPCER at APCER ≤ 5% rises from 4.5% (v1) to
 30.7%. A fusion that learns how much to trust each detector, instead of taking the maximum, is the
 next thing to try; it needs a calibration set with both domains, which FaceForensics++ would supply.
+
+## 2026-10-18: training with FaceForensics++
+
+FaceForensics++ c23 (`notebooks/build_faceforensics.ipynb`): 78,660 crops from 4,950 of the 5,000
+videos (the 1,000 originals and four methods; RetinaFace kept 98.2% to 98.5% of frames in every
+class), with the official splits: 56,664 training, 11,003 validation and 10,993 test crops. Each
+run below is `clip_layernorm_detector.ipynb` with the GenD loss, 1.3x face margin and augmentation;
+the `ffpp` column is the FF++ test split scored by the same model.
+
+| Run | Init, epochs, peak LR | FF++ test frame / video AUC | Celeb-DF frame / video AUC | subject_holdout AUC / BPCER |
+|---|---|---|---|---|
+| `ffpp_to_celebdf`, whole pair groups | CLIP, 2, 3e-4 | 0.700 / 0.803 | 0.628 / 0.753 | not scored |
+| `ffpp_to_celebdf`, pair groups capped at 10 | CLIP, 2, 3e-4 | 0.827 / 0.866 | 0.765 / 0.850 | not scored |
+| `lab_ffpp_to_celebdf`, capped | official GenD, 1, 1e-4 | 0.951 / 0.971 | 0.869 / 0.929 | 0.968 / 14.6% |
+| Official GenD, no training here | | not scored | **0.894 / 0.951** | 0.898 / 70.8% |
+| LayerNorm-tuned CLIP v1, lab data only | | not scored | 0.620 / 0.658 | **0.998 / 1.2%** |
+
+The first run kept whole pair groups: an FF++ group (an original and its four manipulations, 16
+frames each) is 80 crops, so each batch held one scene. Commit 61a9dce caps group pieces at 10,
+which lifted the FF++ test AUC from 0.70 to 0.83, still far from the roughly 0.99 the literature
+reports in-domain. Two epochs of LayerNorm tuning from CLIP do not reproduce GenD, which the paper
+trains far longer.
+
+Starting from the official checkpoint and training one epoch on the lab data with FF++ alongside
+gives the same trade-off as training on the lab data alone (0.929 Celeb-DF video AUC, 0.971
+subject_holdout AUC, earlier section): adding FF++ to the training side did not keep the Celeb-DF
+score at GenD's level. Neither pass criterion of experiment 2b is met (Celeb-DF video AUC ≥ 0.951
+and subject_holdout AUC ≥ 0.99 in one model).
