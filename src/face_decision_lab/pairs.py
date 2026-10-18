@@ -21,19 +21,36 @@ def pair_key(sample: FaceSample) -> str:
     return sample.video_id[len(prefix) :] if sample.video_id.startswith(prefix) else sample.video_id
 
 
-def paired_batches(samples: list[FaceSample], batch_size: int, seed: int) -> list[list[FaceSample]]:
-    """Shuffled batches made of whole pair groups. A group never spans two batches unless it alone
-    is larger than batch_size; every sample appears exactly once."""
+def paired_batches(
+    samples: list[FaceSample], batch_size: int, seed: int, max_group: int | None = None
+) -> list[list[FaceSample]]:
+    """Shuffled batches made of pair groups; every sample appears exactly once.
+
+    A group never spans two batches unless it alone is larger than batch_size. With max_group, a
+    larger group is shuffled and cut into pieces of at most max_group first: a FaceForensics++ group
+    holds every frame of an original and its four manipulations, and whole, one fills a batch, so
+    each step would see a single scene. The pieces still mix real and fake frames of one video.
+    """
     if batch_size <= 0:
         raise ValueError(f"batch_size must be positive, got {batch_size}")
+    if max_group is not None and max_group <= 0:
+        raise ValueError(f"max_group must be positive, got {max_group}")
+    rng = random.Random(seed)
     groups: dict[str, list[FaceSample]] = {}
     for sample in samples:
         groups.setdefault(pair_key(sample), []).append(sample)
-    order = sorted(groups)
-    random.Random(seed).shuffle(order)
-    batches, current = [], []
-    for key in order:
+    pieces = []
+    for key in sorted(groups):
         group = groups[key]
+        if max_group is None or len(group) <= max_group:
+            pieces.append(group)
+            continue
+        group = list(group)
+        random.Random(f"{seed}/{key}").shuffle(group)
+        pieces += [group[i : i + max_group] for i in range(0, len(group), max_group)]
+    rng.shuffle(pieces)
+    batches, current = [], []
+    for group in pieces:
         if current and len(current) + len(group) > batch_size:
             batches.append(current)
             current = []

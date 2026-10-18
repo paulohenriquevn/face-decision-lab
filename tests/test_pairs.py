@@ -90,3 +90,56 @@ def test_faceforensics_videos_of_different_targets_keep_apart(make_sample):
     second = faceforensics.parse_path("manipulated_sequences/Deepfakes/c23/videos/054_071.mp4")
 
     assert pair_key(_sample(make_sample, first)) != pair_key(_sample(make_sample, second))
+
+
+def _ffpp_group(make_sample, target, frames):
+    from face_decision_lab.sources import faceforensics
+
+    paths = [f"original_sequences/youtube/c23/videos/{target}.mp4"] + [
+        f"manipulated_sequences/{m}/c23/videos/{target}_999.mp4"
+        for m in ("Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures")
+    ]
+    out = []
+    for path in paths:
+        item = faceforensics.parse_path(path)
+        out += [
+            make_sample(
+                attack_type=item.attack_type,
+                subject=item.subject_id,
+                video=item.video_id,
+                source=item.source_dataset,
+                path=f"{item.video_id}_{frame}.jpg",
+                generator=item.generator,
+            )
+            for frame in range(frames)
+        ]
+    return out
+
+
+def test_large_groups_split_so_a_batch_holds_many_videos(make_sample):
+    # Regression: an FF++ group (an original and its four manipulations, 16 frames each) is 80 crops,
+    # so whole groups gave one target video per batch and the detector learned the scene.
+    samples = [s for t in range(20) for s in _ffpp_group(make_sample, f"{t:03d}", 16)]
+
+    def mean_videos_per_batch(batches):
+        return sum(len({pair_key(s) for s in b}) for b in batches) / len(batches)
+
+    whole = paired_batches(samples, batch_size=40, seed=0)
+    split = paired_batches(samples, batch_size=40, seed=0, max_group=10)
+
+    assert mean_videos_per_batch(whole) == 1
+    assert mean_videos_per_batch(split) > 3
+
+
+def test_split_groups_still_use_every_sample_once(make_sample):
+    samples = [s for t in ("001", "002") for s in _ffpp_group(make_sample, t, 16)]
+
+    flat = [s for batch in paired_batches(samples, batch_size=40, seed=0, max_group=10) for s in batch]
+
+    assert sorted(flat, key=lambda s: s.image_path) == sorted(samples, key=lambda s: s.image_path)
+
+
+def test_max_group_leaves_small_groups_whole(make_sample):
+    samples = [_sample(make_sample, _dff(g, str(p))) for p in range(10) for g in deepfakeface.GENERATORS]
+
+    assert paired_batches(samples, 8, seed=3, max_group=10) == paired_batches(samples, 8, seed=3)
