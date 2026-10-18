@@ -12,6 +12,7 @@
 - FaceForensics++ adapter with the official splits, and the `ffpp`, `ffpp_to_celebdf` and `lab_ffpp_to_celebdf` protocols
 - Video-level AUC (mean frame score per video) in every evaluation report
 - `tighten_crop` to reframe a built crop to the face margin a pretrained detector expects
+- Learned fusion of detector scores (logistic regression over logits, balanced across domains and classes)
 - Scoring of the official GenD CLIP ViT-L/14 checkpoint under the lab protocols, alone and fused with the lab detector by the larger of the two scores
 - Upload of the build as a private Hugging Face dataset, and training from it
 - Evaluation broken down by generator as well as by attack type
