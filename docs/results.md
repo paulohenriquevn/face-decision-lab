@@ -380,3 +380,41 @@ real ones included, would top this table. The pristine side decides whether thes
 leave real DiFF photos alone. What the table does show: the photo experts and GenD fail on
 different subsets (v1 and v2 on whole-face generation, T2I and I2I; GenD on face editing, FE), so
 the max fusion covers both, and v2 flags more DiFF fakes than v1 in every subset.
+
+## 2026-10-19: DiffusionFace, the first AUC on unseen diffusion faces
+
+`notebooks/score_diffusion_benchmarks.ipynb` (`TEST_SET = "cross_diffusionface"`) scored 20,935
+crops of DiffusionFace part 1: 1,490 CelebA-HQ photos and the images 13 diffusion methods made
+from or next to them (one sampled image number in 20, the same numbers in every folder). None of
+the detectors trained on DiffusionFace. AUC is every real photo against all fakes, and against the
+fakes of each method.
+
+| Detector | AUC | BPCER at APCER ≤ 5% |
+|---|---|---|
+| GenD CLIP | 0.715 | 89.0% |
+| GenD PE | 0.690 | 90.0% |
+| GenD ensemble | 0.725 | 87.3% |
+| v1 | 0.744 | 79.2% |
+| v2 | 0.731 | 78.7% |
+| Max, v1 + ensemble | **0.759** | **77.0%** |
+| Max, v2 + ensemble | 0.737 | 77.3% |
+
+| Method | GenD ensemble | v1 | Max, v1 + ensemble |
+|---|---|---|---|
+| DiffSwap | 0.988 | 0.888 | 0.962 |
+| ADM | 0.920 | 0.865 | 0.889 |
+| LDM | 0.894 | 0.682 | 0.754 |
+| PNDM | 0.739 | 0.868 | 0.869 |
+| DDIM | 0.696 | 0.851 | 0.850 |
+| Inpaint | 0.666 | 0.805 | 0.803 |
+| DDPM | 0.555 | 0.774 | 0.761 |
+| SD 1.5 image to image, strength 0.3 / 0.5 / 0.7 | 0.668 / 0.748 / 0.619 | 0.744 / 0.746 / 0.663 | 0.749 / 0.753 / 0.674 |
+| SD 2.1 image to image, strength 0.3 / 0.5 / 0.7 | 0.582 / 0.655 / 0.674 | 0.561 / 0.590 / 0.618 | 0.567 / 0.606 / 0.622 |
+
+No detector here separates diffusion faces it never trained on from real photos well enough for
+use: at the operating point that catches 95% of fakes, the best system flags 77% of real photos.
+The DiFF table above, where the same systems flagged 93% to 100% of fakes, measured only half of
+this; on DiffusionFace the real photos score high too. Stable Diffusion image to image, which
+redraws a real photo while keeping its layout, is the weakest case for every detector, including
+v1, which trained on Stable Diffusion 1.5 faces made from text. The two experts again fail on
+different methods (GenD on DDPM and Inpaint, v1 on LDM), but taking the larger score gains little.
