@@ -80,3 +80,35 @@ def test_fusion_rejects_a_single_class():
 def test_fusion_rejects_scores_that_do_not_match_the_labels():
     with pytest.raises(MetricInputError, match="got \\(3, 2\\) scores for \\(4,\\) labels"):
         ScoreFusion().fit(np.full((3, 2), 0.5), np.array([True, False, True, False]))
+
+
+def test_gated_mixture_follows_the_gate():
+    from face_decision_lab.fusion import gated_mixture
+
+    gate = np.array([1.0, 0.0, 0.5])
+    lab_expert = np.array([0.9, 0.9, 0.9])
+    video_expert = np.array([0.1, 0.1, 0.1])
+
+    assert gated_mixture(gate, lab_expert, video_expert).tolist() == pytest.approx([0.9, 0.1, 0.5])
+
+
+def test_gated_mixture_rejects_a_gate_outside_zero_one():
+    from face_decision_lab.fusion import gated_mixture
+
+    with pytest.raises(MetricInputError, match="gate values must lie in"):
+        gated_mixture(np.array([1.2]), np.array([0.5]), np.array([0.5]))
+
+
+def test_gated_mixture_rejects_mismatched_lengths():
+    from face_decision_lab.fusion import gated_mixture
+
+    with pytest.raises(MetricInputError, match="got 2 gate values, 1 and 2 scores"):
+        gated_mixture(np.array([0.5, 0.5]), np.array([0.5]), np.array([0.5, 0.5]))
+
+
+def test_in_lab_domain_marks_lab_sources_only(make_sample):
+    from face_decision_lab.fusion import in_lab_domain
+
+    samples = [make_sample(source=s) for s in ("deepfakeface", "axondata", "faceforensics", "celebdf")]
+
+    assert in_lab_domain(samples).tolist() == [True, True, False, False]

@@ -13,6 +13,7 @@
 - Video-level AUC (mean frame score per video) in every evaluation report
 - Face alignment on 5 landmarks with GenD's reference points (`aligned_crop`), selectable per build, and landmarks kept on detected boxes
 - `tighten_crop` to reframe a built crop to the face margin a pretrained detector expects
+- Gated mixture of two detectors by predicted domain (`gated_mixture`, `in_lab_domain`)
 - Learned fusion of detector scores (logistic regression over logits, balanced across domains and classes)
 - Scoring of the official GenD CLIP ViT-L/14 checkpoint under the lab protocols, alone and fused with the lab detector by the larger of the two scores
 - Upload of the build as a private Hugging Face dataset, and training from it

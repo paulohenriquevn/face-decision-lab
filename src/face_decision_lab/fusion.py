@@ -28,6 +28,28 @@ def _domain(sample: FaceSample) -> str:
     return sample.source_dataset if sample.source_dataset in EXTERNAL_DATASETS else "lab"
 
 
+def in_lab_domain(samples: list[FaceSample]) -> np.ndarray:
+    """True for crops from the lab sources: the labels a domain gate learns to predict."""
+    return np.array([_domain(s) == "lab" for s in samples])
+
+
+def gated_mixture(gate: np.ndarray, lab_expert: np.ndarray, video_expert: np.ndarray) -> np.ndarray:
+    """gate * lab_expert + (1 - gate) * video_expert, where gate is the probability that a crop
+    belongs to the lab domain (photos and generated images) rather than to video.
+
+    A mixture of experts: the gate picks, crop by crop, which detector to listen to, where the
+    learned fusion applies one weight to every crop.
+    """
+    gate, lab_expert, video_expert = (np.asarray(a, dtype=float) for a in (gate, lab_expert, video_expert))
+    if not len(gate) == len(lab_expert) == len(video_expert):
+        raise MetricInputError(
+            f"got {len(gate)} gate values, {len(lab_expert)} and {len(video_expert)} scores"
+        )
+    if ((gate < 0) | (gate > 1)).any():
+        raise MetricInputError("gate values must lie in [0, 1]")
+    return gate * lab_expert + (1 - gate) * video_expert
+
+
 def balancing_weights(samples: list[FaceSample]) -> np.ndarray:
     """Sample weights under which every (domain, bona fide or attack) cell has the same total."""
     keys = [(_domain(s), s.is_bona_fide) for s in samples]
