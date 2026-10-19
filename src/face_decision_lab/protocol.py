@@ -4,6 +4,8 @@ The decision model and each baseline import these values instead of setting thei
 numbers cover the same subjects, the same test crops and the same operating point.
 """
 
+from collections.abc import Callable
+
 from .labels import BONA_FIDE
 from .manifest import FaceSample
 from .metrics import auc, bpcer_at_apcer, eer, operating_point
@@ -138,6 +140,23 @@ def _mean_by(samples: list[FaceSample], scores: list[float]) -> dict[str, float]
     return {generator: sum(values) / len(values) for generator, values in sorted(totals.items())}
 
 
+def auc_by_group(
+    samples: list[FaceSample], scores: list[float], group: Callable[[str], str] = lambda generator: generator
+) -> dict[str, float]:
+    """AUC of every bona fide sample against the attacks of each group, where group maps a generator
+    to its group name. Papers on multi-method benchmarks (DiFF's T2I, I2I, FS and FE) report this."""
+    bona_fide = [(s, score) for s, score in zip(samples, scores, strict=True) if s.is_bona_fide]
+    by_group: dict[str, list[tuple[FaceSample, float]]] = {}
+    for sample, score in zip(samples, scores, strict=True):
+        if not sample.is_bona_fide:
+            by_group.setdefault(group(sample.generator), []).append((sample, score))
+    result = {}
+    for name, attacks in sorted(by_group.items()):
+        pairs = bona_fide + attacks
+        result[name] = auc([score for _, score in pairs], [s.attack_type for s, _ in pairs])
+    return result
+
+
 def evaluation_report(samples: list[FaceSample], scores: list[float]) -> dict:
     """Metrics for attack scores (probability of attack) on the given samples."""
     types = [sample.attack_type for sample in samples]
@@ -157,6 +176,7 @@ def evaluation_report(samples: list[FaceSample], scores: list[float]) -> dict:
         # Where a detector's scores sit for each source, real ones included: a detector can rank well
         # and still score a whole real source as suspicious.
         "mean_score_by_generator": _mean_by(samples, scores),
+        "auc_by_generator": auc_by_group(samples, scores),
         "videos": len(per_video),
         "video_auc": auc(per_video, video_types),
     }

@@ -317,3 +317,45 @@ def test_lab_protocols_ignore_diff(make_sample):
     assert protocol_split(lab + _diff(make_sample, 40), "subject_holdout") == protocol_split(
         lab, "subject_holdout"
     )
+
+
+def _scored(make_sample):
+    # Bona fide at 0.1-0.4; generator "easy" above every bona fide score, "hard" below all of them.
+    samples = [
+        make_sample(attack_type="bona_fide", generator="real", path=f"r{i}.jpg", video=f"r{i}")
+        for i in range(4)
+    ]
+    for generator in ("easy", "hard"):
+        samples += [
+            make_sample(
+                attack_type="face_swap",
+                generator=generator,
+                path=f"{generator}{i}.jpg",
+                video=f"{generator}{i}",
+            )
+            for i in range(2)
+        ]
+    scores = [0.1, 0.2, 0.3, 0.4, 0.9, 0.8, 0.05, 0.0]
+    return samples, scores
+
+
+def test_auc_by_group_ranks_each_group_of_attacks_against_every_bona_fide(make_sample):
+    from face_decision_lab.protocol import auc_by_group
+
+    samples, scores = _scored(make_sample)
+
+    assert auc_by_group(samples, scores) == {"easy": 1.0, "hard": 0.0}
+
+
+def test_auc_by_group_merges_generators_of_one_group(make_sample):
+    from face_decision_lab.protocol import auc_by_group
+
+    samples, scores = _scored(make_sample)
+
+    assert auc_by_group(samples, scores, group=lambda generator: "all") == {"all": 0.5}
+
+
+def test_evaluation_report_has_the_auc_of_each_generator(make_sample):
+    samples, scores = _scored(make_sample)
+
+    assert evaluation_report(samples, scores)["auc_by_generator"] == {"easy": 1.0, "hard": 0.0}
