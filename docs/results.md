@@ -265,3 +265,39 @@ gives the same trade-off as training on the lab data alone (0.929 Celeb-DF video
 subject_holdout AUC, earlier section): adding FF++ to the training side did not keep the Celeb-DF
 score at GenD's level. Neither pass criterion of experiment 2b is met (Celeb-DF video AUC ≥ 0.951
 and subject_holdout AUC ≥ 0.99 in one model).
+
+## 2026-10-19: learned fusion, GenD variants and aligned crops
+
+Two runs at commits a058a65 (`score_pretrained_detectors.ipynb`) and 71df2a1
+(`score_gend_variants.ipynb`). Reports: `paulohenriquevn/face-decision-clip-ln`, `pretrained/`.
+
+The learned fusion is a logistic regression over the logits of the v1 detector and the official
+GenD CLIP checkpoint, fitted on the lab calibration side of each protocol plus the FF++
+validation split, with every domain and class weighing the same; Celeb-DF stays out of the fit.
+
+| Test | v1 | Official GenD CLIP | Max fusion | Learned fusion |
+|---|---|---|---|---|
+| subject_holdout AUC / BPCER | 0.998 / 1.2% | 0.898 / 70.8% | 0.994 / 2.7% | 0.994 / **0.9%** |
+| unseen_text2img AUC / BPCER | **0.989 / 4.5%** | 0.807 / 76.0% | 0.953 / 30.7% | 0.970 / 13.0% |
+| unseen_insight AUC / BPCER | 0.975 / 13.6% | 0.946 / 36.5% | 0.969 / 18.0% | **0.975 / 10.8%** |
+| unseen_inpainting AUC / BPCER | **0.998 / 0.4%** | 0.910 / 44.9% | 0.991 / 1.2% | 0.995 / 0.9% |
+| FF++ test frame / video AUC | not scored | **0.946 / 0.966** | not scored | 0.935 / 0.956 |
+| Celeb-DF frame / video AUC | 0.620 / 0.658 | **0.894 / 0.951** | 0.848 / 0.905 | 0.831 / 0.884 |
+
+The learned fusion beats the max fusion on every lab protocol and loses to it on Celeb-DF: fitted
+on lab and FF++ crops, it learns to trust v1 more than v1 deserves on video it has never seen.
+
+GenD checkpoints on Celeb-DF, frame / video AUC, EER:
+
+| Checkpoint | Square crop, 16 frames (lab pipeline) | Aligned crop, 32 frames (GenD pipeline) |
+|---|---|---|
+| GenD CLIP ViT-L/14 | 0.894 / 0.951, 18.0% | 0.885 / 0.947, 19.3% |
+| GenD Perception Encoder L | 0.899 / 0.953, 18.8% | 0.886 / 0.945, 19.6% |
+| Mean of the two probabilities | **0.916 / 0.967, 16.5%** | 0.905 / 0.958, 17.9% |
+
+Aligning the faces the way GenD's preprocessing does (`faces.aligned_crop`, 32 frames) lowered
+every score a little, so the gap between 0.951 here and the paper's 0.960 does not come from the
+crop. The ensemble of the two public checkpoints is the best Celeb-DF result measured in the lab:
+0.967 video AUC on the lab's crops, above the single-model numbers GenD reports (0.960 CLIP, 0.958
+PE). The comparison is not exact: the paper's frames and detector settings differ, and an ensemble
+of two models is a different class of entry than a single model.
