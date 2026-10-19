@@ -20,16 +20,21 @@ from .manifest import FaceSample, write_manifest
 from .sources.base import SourceItem
 
 Detector = Callable[[np.ndarray], list[Box]]
+# Turns an image and the chosen face into the stored crop: square_crop, or aligned_crop on the
+# face's landmarks for detectors trained on aligned faces.
+Cropper = Callable[[np.ndarray, Box], np.ndarray]
 FRAMES_PER_VIDEO = 16
 
 
-def crop_frame(image: np.ndarray | None, detector: Detector) -> tuple[bytes | None, Outcome]:
+def crop_frame(
+    image: np.ndarray | None, detector: Detector, cropper: Cropper = square_crop
+) -> tuple[bytes | None, Outcome]:
     if image is None or image.size == 0:
         return None, Outcome.UNREADABLE
     box, outcome = pick_face(detector(image))
     if box is None:
         return None, outcome
-    return encode_jpeg(square_crop(image, box)), Outcome.SAVED
+    return encode_jpeg(cropper(image, box)), Outcome.SAVED
 
 
 def decode_image(data: bytes) -> np.ndarray | None:
@@ -55,9 +60,16 @@ def video_frames(path: Path, count: int) -> Iterator[tuple[int, np.ndarray | Non
 
 
 class DatasetBuilder:
-    def __init__(self, output_dir: str | Path, detector: Detector, frames_per_video: int = FRAMES_PER_VIDEO):
+    def __init__(
+        self,
+        output_dir: str | Path,
+        detector: Detector,
+        frames_per_video: int = FRAMES_PER_VIDEO,
+        cropper: Cropper = square_crop,
+    ):
         self.output_dir = Path(output_dir)
         self.detector = detector
+        self.cropper = cropper
         self.frames_per_video = frames_per_video
         self.report = CropReport()
         self._log_path = self.output_dir / "processed.jsonl"
@@ -81,7 +93,7 @@ class DatasetBuilder:
         key = f"{item.source_dataset}:{item.path}"
         if key in self._done:
             return
-        crop, outcome = crop_frame(decode_image(data), self.detector)
+        crop, outcome = crop_frame(decode_image(data), self.detector, self.cropper)
         self._record(item, key, [(0, crop, outcome)])
 
     def add_images(
@@ -98,7 +110,9 @@ class DatasetBuilder:
         processed = 0
         with ThreadPoolExecutor(max_workers=workers) as pool:
             while chunk := list(islice(pending, batch)):
-                crops = pool.map(lambda pair: crop_frame(decode_image(pair[1]), self.detector), chunk)
+                crops = pool.map(
+                    lambda pair: crop_frame(decode_image(pair[1]), self.detector, self.cropper), chunk
+                )
                 for (item, _), (crop, outcome) in zip(chunk, crops, strict=True):
                     self._record(item, f"{item.source_dataset}:{item.path}", [(0, crop, outcome)])
                 processed += len(chunk)
@@ -109,7 +123,7 @@ class DatasetBuilder:
         if key in self._done:
             return
         results = [
-            (index, *crop_frame(frame, self.detector))
+            (index, *crop_frame(frame, self.detector, self.cropper))
             for index, frame in video_frames(path, self.frames_per_video)
         ]
         self._record(item, key, results)

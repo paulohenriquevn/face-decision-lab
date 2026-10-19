@@ -40,6 +40,7 @@ Research only. The plan and its pass criteria are in
 | `notebooks/clip_baseline.ipynb` | Scores the CLIP linear probe under the same protocol |
 | `notebooks/clip_layernorm_detector.ipynb` | Trains and scores a LayerNorm-tuned CLIP detector (GenD recipe) per protocol |
 | `notebooks/score_pretrained_detectors.ipynb` | Scores the official GenD checkpoint and earlier lab detectors under every protocol, `cross_celebdf` included |
+| `notebooks/score_gend_variants.ipynb` | Scores the GenD CLIP and Perception Encoder checkpoints and their ensemble on square and aligned Celeb-DF crops |
 | `notebooks/train_decision_model.ipynb` | Trains, calibrates and evaluates on Colab |
 
 ## Running

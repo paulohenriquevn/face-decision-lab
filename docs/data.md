@@ -64,6 +64,10 @@ video, into a separate private dataset. Nothing trains on it. It is the test sid
 | `YouTube-real/<clip>.mp4` | `bona_fide`, generator `youtube_real` | one per video |
 | `Celeb-synthesis/id<T>_id<S>_<clip>.mp4` | `face_swap`, generator `celebdf_synthesis` | `celebdf_id<T>`, the person in the target clip |
 
+`ALIGN = True` builds a second private dataset (`face-decision-celebdf-test-aligned`) the way
+GenD's authors crop: 32 frames per video, each face warped onto five reference landmarks with a
+1.3x margin (`faces.aligned_crop`, a port of their MIT-licensed `align_face`).
+
 The test list labels real videos 1 and fakes 0; the adapter checks each label against the folder
 the video sits in. Access comes from the authors' form, for non-commercial research only, and the
 archive stays in the researcher's own Google Drive.

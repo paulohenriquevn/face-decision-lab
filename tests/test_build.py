@@ -119,3 +119,19 @@ def test_add_images_skips_images_already_processed(tmp_path, wiki_item):
 
     assert processed == 0
     assert len(builder.samples) == 1
+
+
+def test_builder_crops_with_the_cropper_it_was_given(tmp_path, wiki_item):
+    calls = []
+
+    def tiny_crop(image, box):
+        calls.append(box)
+        return np.zeros((32, 32, 3), np.uint8)
+
+    builder = DatasetBuilder(tmp_path, one_face, cropper=tiny_crop)
+
+    builder.add_image(wiki_item, jpeg())
+
+    [sample] = builder.samples
+    assert calls == [Box(10, 10, 40, 40)]
+    assert cv2.imread(str(tmp_path / sample.image_path)).shape == (32, 32, 3)

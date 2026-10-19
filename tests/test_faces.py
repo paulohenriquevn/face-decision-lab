@@ -179,3 +179,43 @@ def test_tighten_crop_cannot_add_margin_the_crop_does_not_have():
 
     with pytest.raises(ValueError, match="face_scale 1.8 is wider than the crop's 1.5"):
         tighten_crop(Image.new("RGB", (256, 256)), face_scale=1.8)
+
+
+# Landmarks in image order: two eyes, nose, two mouth corners (GenD's 5-point layout).
+def _face_landmarks(center_x=200.0, center_y=180.0, size=100.0):
+    reference = [(0.34, 0.46), (0.66, 0.46), (0.5, 0.64), (0.37, 0.82), (0.63, 0.82)]
+    return tuple((center_x + (x - 0.5) * size, center_y + (y - 0.5) * size) for x, y in reference)
+
+
+def test_aligned_crop_puts_the_nose_where_gend_puts_it():
+    from face_decision_lab.faces import aligned_crop
+
+    landmarks = _face_landmarks()
+    image = np.zeros((400, 400, 3), dtype=np.uint8)
+    nose_x, nose_y = (round(v) for v in landmarks[2])
+    image[nose_y - 2 : nose_y + 3, nose_x - 2 : nose_x + 3] = 255
+
+    crop = aligned_crop(image, landmarks, size=256)
+
+    # GenD's reference nose (0.5, 0.64) with a 1.3x margin lands at ((0.5 + 0.15) / 1.3,
+    # (0.64 + 0.15) / 1.3) of the output: (128, 155.6) in a 256-pixel crop.
+    ys, xs = np.nonzero(crop[:, :, 0] > 128)
+    assert crop.shape == (256, 256, 3)
+    assert abs(xs.mean() - 128) < 2 and abs(ys.mean() - 155.6) < 2
+
+
+def test_aligned_crop_does_not_depend_on_the_landmark_order():
+    from face_decision_lab.faces import aligned_crop
+
+    landmarks = _face_landmarks()
+    swapped = (landmarks[1], landmarks[0], landmarks[2], landmarks[4], landmarks[3])
+    image = np.random.default_rng(0).integers(0, 255, (400, 400, 3), dtype=np.uint8)
+
+    assert np.array_equal(aligned_crop(image, landmarks), aligned_crop(image, swapped))
+
+
+def test_aligned_crop_rejects_a_face_without_five_landmarks():
+    from face_decision_lab.faces import aligned_crop
+
+    with pytest.raises(ValueError, match="needs 5 landmarks, got 0"):
+        aligned_crop(np.zeros((100, 100, 3), dtype=np.uint8), ())

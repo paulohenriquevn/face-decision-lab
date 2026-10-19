@@ -34,6 +34,8 @@ class Box:
     y: float
     w: float
     h: float
+    # The detector's 5 landmarks (two eyes, nose, two mouth corners), in image coordinates.
+    landmarks: tuple[tuple[float, float], ...] = ()
 
     @property
     def area(self) -> float:
@@ -88,6 +90,37 @@ def square_crop(
         ]
     interpolation = cv2.INTER_AREA if side > size else cv2.INTER_CUBIC
     return cv2.resize(canvas, (size, size), interpolation=interpolation)
+
+
+# GenD's reference positions of the 5 landmarks in a face crop, as fractions of its side
+# (yermandy/GenD, detector.py, align_face; MIT, Copyright (c) 2025 Andy).
+ALIGNED_REFERENCE = ((0.34, 0.46), (0.66, 0.46), (0.5, 0.64), (0.37, 0.82), (0.63, 0.82))
+ALIGNED_FACE_SCALE = 1.3
+
+
+def aligned_crop(
+    image: np.ndarray,
+    landmarks: tuple[tuple[float, float], ...],
+    scale: float = ALIGNED_FACE_SCALE,
+    size: int = CROP_SIZE,
+) -> np.ndarray:
+    """The face warped so its landmarks land on GenD's reference points, with the same context
+    margin GenD trained on (scale 1.3), as a size x size image.
+
+    A port of GenD's align_face with a fixed output size. Eyes and mouth corners are ordered left to
+    right by x, so the result does not depend on which eye a detector calls "left".
+    """
+    import cv2
+
+    if len(landmarks) != 5:
+        raise ValueError(f"aligned_crop needs 5 landmarks, got {len(landmarks)}")
+    eyes = sorted(landmarks[:2])
+    mouth = sorted(landmarks[3:])
+    source = np.array([*eyes, landmarks[2], *mouth], dtype=np.float32)
+    margin = (scale - 1) / 2
+    target = (np.array(ALIGNED_REFERENCE, dtype=np.float32) + margin) / scale * size
+    matrix = cv2.estimateAffinePartial2D(source, target, method=cv2.LMEDS)[0]
+    return cv2.warpAffine(image, matrix, (size, size), flags=cv2.INTER_LINEAR)
 
 
 def tighten_crop(image, face_scale: float, crop_face_scale: float = CROP_FACE_SCALE):
@@ -173,5 +206,11 @@ class RetinaFaceDetector:
         boxes = []
         for face in found.values():
             x1, y1, x2, y2 = (value / scale for value in face["facial_area"])
-            boxes.append(Box(x=x1, y=y1, w=x2 - x1, h=y2 - y1))
+            points = face.get("landmarks", {})
+            landmarks = tuple(
+                (float(points[name][0]) / scale, float(points[name][1]) / scale)
+                for name in ("right_eye", "left_eye", "nose", "mouth_right", "mouth_left")
+                if name in points
+            )
+            boxes.append(Box(x=x1, y=y1, w=x2 - x1, h=y2 - y1, landmarks=landmarks))
         return boxes
