@@ -418,3 +418,42 @@ this; on DiffusionFace the real photos score high too. Stable Diffusion image to
 redraws a real photo while keeping its layout, is the weakest case for every detector, including
 v1, which trained on Stable Diffusion 1.5 faces made from text. The two experts again fail on
 different methods (GenD on DDPM and Inpaint, v1 on LDM), but taking the larger score gains little.
+
+## 2026-10-19: why DiffusionFace's real photos score as fake
+
+`notebooks/diagnose_bona_fide_scores.ipynb` scored up to 1,000 real crops per source, none from
+any detector's training side, at native resolution and lowered with `lower_resolution` to faces
+128, 96 and 64 px wide. The threshold is each detector's APCER 5% point on the DiffusionFace
+fakes; the table gives the share of each source's reals above it. AxonData is left out: its
+test side has too few real crops to read.
+
+| Real crops | Sharpness | v1 | v2 | GenD ensemble |
+|---|---|---|---|---|
+| DiffusionFace (CelebA-HQ), native | 441 | 77.8% | 76.3% | 87.0% |
+| DiffusionFace, 128 px | 93 | 50.5% | 13.9% | 87.8% |
+| DiffusionFace, 96 px | 42 | 53.8% | 3.6% | 92.2% |
+| DeepFakeFace, native | 278 | 2.8% | 1.1% | 53.2% |
+| DeepFakeFace, 64 px | 16 | 1.6% | 0.2% | 78.9% |
+| FaceForensics++, native | 95 | 15.9% | 0.3% | 29.0% |
+| FaceForensics++, 64 px | 11 | 11.1% | 0.0% | 63.3% |
+| Celeb-DF, native | 31 | 49.1% | 2.7% | 48.6% |
+| Celeb-DF, 64 px | 7 | 8.6% | 0.0% | 67.9% |
+
+Sharpness is the median variance of the Laplacian; native DiffusionFace crops are the sharpest
+of all sources.
+
+Low resolution does not explain the failure of the lab detectors. Lowering the resolution of
+DeepFakeFace, FaceForensics++ or Celeb-DF reals never raises v1 or v2 above the threshold. It
+is the CelebA-HQ photos themselves: v2 gives them a median score of 0.974, and removing their
+fine detail brings it to 0.107 at 128 px. The likely cause is how CelebA-HQ was made: Karras et
+al. (ICLR 2018, appendix C) passed every CelebA photo through a JPEG artifact removal network
+and a 4x super-resolution network, and the detail those networks drew is what v1 and v2 flag.
+GenD behaves the other way: it scores any face higher as its resolution drops, on every source,
+and it already flags 87% of DiffusionFace reals at native resolution.
+
+Two readings follow. Against ordinary real photos (DeepFakeFace, FaceForensics++, Celeb-DF), v2
+catches 95% of the DiffusionFace fakes while flagging 0.3% to 2.7% of the reals, so the fakes
+themselves are mostly caught. But a real photo that went through a generative network, such as
+super-resolution or a phone's enhancement, looks fake to v2, and DiffusionFace's AUC measures
+exactly that. Our hypothesis, still to test, is that the fix lies in training data (real photos
+processed by such networks, labeled real) and not in fusion.
