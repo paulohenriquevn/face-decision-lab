@@ -37,10 +37,14 @@ CROSS_DATASET_PROTOCOLS = {
 # test on Celeb-DF, the standard cross-dataset benchmark, after training on FaceForensics++ alone or
 # together with the lab data. Only the four methods of the original paper enter, as in the
 # literature these numbers are compared with; FaceShifter is left out.
-FFPP_PROTOCOLS = ("ffpp", "ffpp_to_celebdf", "lab_ffpp_to_celebdf")
+FFPP_PROTOCOLS = ("ffpp", "ffpp_to_celebdf", "lab_ffpp_to_celebdf", "lab_ffpp_real")
 FFPP_GENERATORS = frozenset(
     {"ffpp_original", "ffpp_deepfakes", "ffpp_faceswap", "ffpp_face2face", "ffpp_neuraltextures"}
 )
+
+# "lab_ffpp_real" adds only the FF++ originals to the lab's subject_holdout sides, as more bona fide
+# video, and tests on the subject_holdout test side: a photo detector that must stop flagging real
+# video as an attack without learning FF++'s manipulations.
 
 # Datasets with their own test role; the lab's subject split never draws from them, since mixed in
 # they would change the subject shuffle and the split would no longer be the one every other model
@@ -52,7 +56,7 @@ def external_datasets(protocol: str) -> frozenset[str]:
     """The external datasets a protocol needs loaded next to the lab data."""
     if protocol in CROSS_DATASET_PROTOCOLS:
         return frozenset({CROSS_DATASET_PROTOCOLS[protocol]})
-    if protocol == "ffpp":
+    if protocol in ("ffpp", "lab_ffpp_real"):
         return frozenset({"faceforensics"})
     if protocol in FFPP_PROTOCOLS:
         return frozenset({"faceforensics", "celebdf"})
@@ -104,6 +108,10 @@ def _ffpp_split(
     sides = {name: [s for s in ffpp if official_split(s) == name] for name in ("train", "val", "test")}
     if protocol == "ffpp":
         return sides["train"], sides["val"], sides["test"]
+    if protocol == "lab_ffpp_real":
+        lab_train, lab_calibration, lab_test = protocol_split(samples, "subject_holdout")
+        originals = {name: [s for s in side if s.is_bona_fide] for name, side in sides.items()}
+        return lab_train + originals["train"], lab_calibration + originals["val"], lab_test
     celebdf = _from(samples, "celebdf")
     if protocol == "ffpp_to_celebdf":
         return sides["train"], sides["val"], celebdf
@@ -122,6 +130,13 @@ def video_scores(samples: list[FaceSample], scores: list[float]) -> tuple[list[s
     return [types[v] for v in videos], [sum(by_video[v]) / len(by_video[v]) for v in videos]
 
 
+def _mean_by(samples: list[FaceSample], scores: list[float]) -> dict[str, float]:
+    totals: dict[str, list[float]] = {}
+    for sample, score in zip(samples, scores, strict=True):
+        totals.setdefault(sample.generator, []).append(score)
+    return {generator: sum(values) / len(values) for generator, values in sorted(totals.items())}
+
+
 def evaluation_report(samples: list[FaceSample], scores: list[float]) -> dict:
     """Metrics for attack scores (probability of attack) on the given samples."""
     types = [sample.attack_type for sample in samples]
@@ -138,6 +153,9 @@ def evaluation_report(samples: list[FaceSample], scores: list[float]) -> dict:
         "apcer_by_attack_type": point.apcer_by_type,
         "apcer_by_generator": operating_point(scores, by_generator, point.threshold).apcer_by_type,
         # Frame scores averaged per video, the usual video-level number in deepfake papers.
+        # Where a detector's scores sit for each source, real ones included: a detector can rank well
+        # and still score a whole real source as suspicious.
+        "mean_score_by_generator": _mean_by(samples, scores),
         "videos": len(per_video),
         "video_auc": auc(per_video, video_types),
     }

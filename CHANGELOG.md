@@ -10,7 +10,8 @@
 - Source adapters for DeepFakeFace and the AxonData anti-spoofing sample
 - Celeb-DF v2 adapter and a `cross_celebdf` protocol that trains on the lab data and tests on the official Celeb-DF v2 test videos
 - FaceForensics++ adapter with the official splits, and the `ffpp`, `ffpp_to_celebdf` and `lab_ffpp_to_celebdf` protocols
-- Video-level AUC (mean frame score per video) in every evaluation report
+- Video-level AUC (mean frame score per video) and the mean score of each generator in every evaluation report
+- `lab_ffpp_real` protocol: the lab's training side plus the FF++ originals as bona fide video
 - Face alignment on 5 landmarks with GenD's reference points (`aligned_crop`), selectable per build, and landmarks kept on detected boxes
 - `tighten_crop` to reframe a built crop to the face margin a pretrained detector expects
 - Gated mixture of two detectors by predicted domain (`gated_mixture`, `in_lab_domain`)

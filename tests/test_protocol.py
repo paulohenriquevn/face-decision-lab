@@ -244,3 +244,44 @@ def test_lab_ffpp_to_celebdf_trains_on_both_training_sides(make_sample):
 def test_ffpp_protocol_needs_faceforensics_samples(make_sample):
     with pytest.raises(ValueError, match="no 'faceforensics' samples"):
         protocol_split(_samples(make_sample, 900), "ffpp")
+
+
+def test_lab_ffpp_real_adds_only_ffpp_originals_to_the_lab_training_side(make_sample):
+    lab, celebdf = _with_celebdf(make_sample, 900, 4)
+    ffpp = _ffpp(make_sample)
+
+    train, calibration, test = protocol_split(lab + ffpp + celebdf, "lab_ffpp_real")
+
+    lab_train, lab_calibration, lab_test = protocol_split(lab, "subject_holdout")
+    extra_train = [s for s in train if s.source_dataset == "faceforensics"]
+    assert extra_train and all(s.generator == "ffpp_original" for s in extra_train)
+    assert [s for s in train if s.source_dataset != "faceforensics"] == lab_train
+    assert {s.generator for s in calibration if s.source_dataset == "faceforensics"} == {"ffpp_original"}
+    assert test == lab_test
+
+
+def test_lab_ffpp_real_keeps_the_official_ffpp_splits(make_sample):
+    from face_decision_lab.sources import faceforensics
+
+    lab, _ = _with_celebdf(make_sample, 900, 1)
+
+    train, calibration, _ = protocol_split(lab + _ffpp(make_sample), "lab_ffpp_real")
+
+    assert {faceforensics.official_split(s) for s in train if s.source_dataset == "faceforensics"} == {
+        "train"
+    }
+    assert {faceforensics.official_split(s) for s in calibration if s.source_dataset == "faceforensics"} == {
+        "val"
+    }
+
+
+def test_evaluation_report_gives_the_mean_score_of_each_generator(make_sample):
+    samples = [
+        make_sample(attack_type="bona_fide", generator="celeb_real", video="a", path="a.jpg"),
+        make_sample(attack_type="bona_fide", generator="celeb_real", video="b", path="b.jpg"),
+        make_sample(attack_type="face_swap", generator="celebdf_synthesis", video="c", path="c.jpg"),
+    ]
+
+    report = evaluation_report(samples, [0.2, 0.4, 0.9])
+
+    assert report["mean_score_by_generator"] == pytest.approx({"celeb_real": 0.3, "celebdf_synthesis": 0.9})
