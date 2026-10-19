@@ -115,7 +115,7 @@ An image's number is the number of the real photo it was made from, so the subje
 `diffusionface_<number>` and a fake shares it with its source photo. The unconditional
 generators reuse the numbering without depicting the same person. The authors publish no test
 split; `diffusionface.sampled` keeps about one number in 20, the same numbers in every folder,
-and the notebook streams each tar once to collect them.
+and the notebook downloads every tar in parallel (Zenodo served about 0.6 MB/s per connection) before cropping them.
 
 ## FaceForensics++
 
