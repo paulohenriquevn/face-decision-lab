@@ -107,13 +107,15 @@ CC BY 4.0, research use only per the authors): one tar of about 3 GB per folder,
 | Folder | Label |
 |---|---|
 | `Real` (CelebA-HQ photos) | `bona_fide` |
-| `ADM`, `DDIM`, `DDPM`, `PNDM`, `LDM`, `MM_CelebA` | `fully_synthetic` |
+| `ADM`, `DDIM`, `DDPM`, `PNDM`, `LDM` | `fully_synthetic` |
 | `SDv15_DS{0.3,0.5,0.7}`, `SDv21_DS{0.3,0.5,0.7}` (image to image) | `fully_synthetic` |
-| `DiffSwap`, `Inpaint` | `face_swap` |
+| `DiffSwap`, `Inpaint` (images in `Inpaint/images/`) | `face_swap` |
 
 An image's number is the number of the real photo it was made from, so the subject is
 `diffusionface_<number>` and a fake shares it with its source photo. The unconditional
-generators reuse the numbering without depicting the same person. The authors publish no test
+generators reuse the numbering without depicting the same person. `MM_CelebA.tar` holds no images,
+only the captions behind the text prompts, so the build skips it; so are Inpaint's masks and JSON
+files and DiffSwap's `target_source.csv`. The authors publish no test
 split; `diffusionface.sampled` keeps about one number in 20, the same numbers in every folder,
 and the notebook downloads every tar in parallel (Zenodo served about 0.6 MB/s per connection) before cropping them.
 

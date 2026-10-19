@@ -11,11 +11,10 @@ MEMBERS = {
     "DDPM/23010.png": ("diffusionface_ddpm", "fully_synthetic"),
     "PNDM/23010.png": ("diffusionface_pndm", "fully_synthetic"),
     "LDM/23010.png": ("diffusionface_ldm", "fully_synthetic"),
-    "MM_CelebA/23010.png": ("diffusionface_mm_celeba", "fully_synthetic"),
     "SDv15_DS0.3/23010.png": ("diffusionface_sdv15_ds0.3", "fully_synthetic"),
     "SDv21_DS0.7/23010.png": ("diffusionface_sdv21_ds0.7", "fully_synthetic"),
     "DiffSwap/23010.png": ("diffusionface_diffswap", "face_swap"),
-    "Inpaint/23010.png": ("diffusionface_inpaint", "face_swap"),
+    "Inpaint/images/23010.png": ("diffusionface_inpaint", "face_swap"),
 }
 
 
@@ -34,8 +33,31 @@ def test_a_fake_shares_the_subject_of_the_real_photo_with_its_number():
     assert real.video_id != fake.video_id
 
 
-def test_directories_are_skipped():
-    assert diffusionface.parse_member("Real/") is None
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Real/",
+        "Inpaint/masks/23010.png",
+        "Inpaint/jsons/23010.json",
+        "DiffSwap/target_source.csv",
+        "MM_CelebA/text/celeba-caption/20820.txt",
+        "MM_CelebA/train/filenames.pickle",
+    ],
+)
+def test_directories_masks_and_metadata_are_skipped(name):
+    # MM_CelebA.tar holds only the captions and file lists behind the text prompts, no images.
+    assert diffusionface.parse_member(name) is None
+
+
+def test_inpainting_shares_the_subject_of_its_real_photo():
+    item = diffusionface.parse_member("Inpaint/images/23010.png")
+
+    assert item.subject_id == "diffusionface_23010"
+
+
+def test_unexpected_member_of_a_known_folder_is_rejected():
+    with pytest.raises(SourceLayoutError, match="expected <folder>/<number>.png"):
+        diffusionface.parse_member("Inpaint/previews/23010.png")
 
 
 def test_unknown_folder_is_rejected():
