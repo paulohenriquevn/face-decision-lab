@@ -42,3 +42,9 @@ def test_dataset_card_rejects_a_source_without_a_license_row(make_sample):
 
 def test_dataset_card_has_a_license_row_for_faceforensics(make_sample):
     assert "FaceForensics++" in dataset_card([make_sample(source="faceforensics")], {})
+
+
+def test_dataset_card_has_a_license_row_for_diff(make_sample):
+    card = dataset_card([make_sample(source="diff", generator="diff_t2i_sdxl")], {})
+
+    assert "DiFF" in card

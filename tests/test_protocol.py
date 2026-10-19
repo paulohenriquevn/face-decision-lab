@@ -285,3 +285,35 @@ def test_evaluation_report_gives_the_mean_score_of_each_generator(make_sample):
     report = evaluation_report(samples, [0.2, 0.4, 0.9])
 
     assert report["mean_score_by_generator"] == pytest.approx({"celeb_real": 0.3, "celebdf_synthesis": 0.9})
+
+
+def _diff(make_sample, identities):
+    return [
+        make_sample(
+            attack_type="bona_fide" if i % 2 else "fully_synthetic",
+            subject=f"diff_id_{i:04d}",
+            video=f"diff/{i}",
+            source="diff",
+            path=f"diff/{i}.jpg",
+            generator="diff_real" if i % 2 else "diff_t2i_sdxl",
+        )
+        for i in range(identities)
+    ]
+
+
+def test_cross_diff_tests_on_every_diff_crop(make_sample):
+    lab, _ = _with_celebdf(make_sample, 900, 1)
+    diff = _diff(make_sample, 40)
+
+    train, calibration, test = protocol_split(lab + diff, "cross_diff")
+
+    assert test == diff
+    assert "diff" not in {s.source_dataset for s in train + calibration}
+
+
+def test_lab_protocols_ignore_diff(make_sample):
+    lab, _ = _with_celebdf(make_sample, 900, 1)
+
+    assert protocol_split(lab + _diff(make_sample, 40), "subject_holdout") == protocol_split(
+        lab, "subject_holdout"
+    )

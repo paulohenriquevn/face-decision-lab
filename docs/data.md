@@ -72,6 +72,30 @@ The test list labels real videos 1 and fakes 0; the adapter checks each label ag
 the video sits in. Access comes from the authors' form, for non-commercial research only, and the
 archive stays in the researcher's own Google Drive.
 
+## Unseen test set: DiFF
+
+`notebooks/build_diff_test.ipynb` crops the official test split of DiFF (Diffusion Facial Forgery,
+ACM MM 2024) into a separate private dataset, the test side of the `cross_diff` protocol. Nothing
+trains on it. The synthesized images are public on the authors' Google Drive, one zip per method;
+the notebook downloads them one at a time. In October 2026 the 13 test zips held 57,060 images of
+143 identities.
+
+| Subset | Methods (zip folder) | Label |
+|---|---|---|
+| T2I, text to image | `Midjourney`, `SDXL`, `FreeDoM_T`, `HPS` | `fully_synthetic` |
+| I2I, image to image | `SDXL_Refine`, `LoRA`, `DreamBooth`, `FreeDoM_I` | `fully_synthetic` |
+| FS, face swapping | `DiffFace`, `DCFace` | `face_swap` |
+| FE, face editing | `Imagic`, `CoDiff`, `cycle_diff` | `face_reenactment` |
+
+Every member sits under `<method>/id_<number>/`; the generator is `diff_<subset>_<method>` (for
+example `diff_t2i_sdxl`) and the subject is `diff_id_<number>`. The lab's taxonomy has no face
+editing class, so FE maps to `face_reenactment`, the class for a real face changed in expression or
+attributes. The LoRA zip carries macOS resource forks, which the adapter skips.
+
+The pristine images, the bona fide side, come only through the authors' access form, for academic
+research and without redistribution. Their layout is not in the adapter yet; it fails on the first
+pristine member until it is.
+
 ## FaceForensics++
 
 `notebooks/build_faceforensics.ipynb` downloads the c23 videos of the 1,000 originals and the four

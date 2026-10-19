@@ -57,6 +57,8 @@ SOURCE_ROWS = {
     "no redistribution (terms signed per researcher) | original YouTube videos and their manipulations |",
     "celebdf": "| [Celeb-DF v2](https://github.com/yuezunli/celeb-deepfakeforensics) | research use only, "
     "no redistribution (terms signed per researcher) | frames of the 518 official test videos |",
+    "diff": "| [DiFF](https://github.com/xaCheng1996/DiFF) | synthesized images Apache 2.0; pristine images "
+    "academic research only, no redistribution (form signed per researcher) | official test split |",
 }
 
 

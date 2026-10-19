@@ -36,6 +36,7 @@ Research only. The plan and its pass criteria are in
 | `src/face_decision_lab/pairs.py` | Batches that keep a real photo with the fakes made from it |
 | `notebooks/build_dataset.ipynb` | Builds the dataset on a Colab GPU and uploads it |
 | `notebooks/build_celebdf_test.ipynb` | Crops the official Celeb-DF v2 test videos into a separate private dataset |
+| `notebooks/build_diff_test.ipynb` | Crops the official DiFF test split (diffusion faces) into a separate private dataset |
 | `notebooks/build_faceforensics.ipynb` | Downloads FaceForensics++ c23 and crops it into a separate private dataset |
 | `notebooks/clip_baseline.ipynb` | Scores the CLIP linear probe under the same protocol |
 | `notebooks/clip_layernorm_detector.ipynb` | Trains and scores a LayerNorm-tuned CLIP detector (GenD recipe) per protocol |
