@@ -301,3 +301,27 @@ crop. The ensemble of the two public checkpoints is the best Celeb-DF result mea
 0.967 video AUC on the lab's crops, above the single-model numbers GenD reports (0.960 CLIP, 0.958
 PE). The comparison is not exact: the paper's frames and detector settings differ, and an ensemble
 of two models is a different class of entry than a single model.
+
+## 2026-10-19: gating between the lab detector and the GenD ensemble
+
+`score_gated_fusion.ipynb` at commit c34e7e2. Two experts: v1 (lab data) and the mean of the GenD
+CLIP and Perception Encoder checkpoints. A linear gate on GenD CLIP's features, fitted on the lab
+calibration side and the FF++ validation split, predicts the probability that a crop is from the
+lab domain; the score is `gate * v1 + (1 - gate) * ensemble`. Celeb-DF never enters a fit.
+
+| Test (AUC / BPCER at APCER ≤ 5%) | v1 | GenD ensemble | Max of the two | Gated |
+|---|---|---|---|---|
+| subject_holdout | **0.998 / 1.2%** | 0.891 / 64.3% | 0.994 / 3.0% | **0.998 / 1.1%** |
+| unseen_text2img | **0.989 / 4.5%** | 0.810 / 70.3% | 0.958 / 26.2% | **0.989 / 4.5%** |
+| unseen_insight | 0.975 / 13.6% | 0.954 / 28.1% | 0.972 / 15.4% | **0.976 / 13.4%** |
+| unseen_inpainting | **0.998 / 0.4%** | 0.902 / 40.5% | 0.992 / 1.4% | **0.998 / 0.4%** |
+| FF++ test, frame / video AUC | not scored | **0.964 / 0.976** | 0.959 / 0.972 | 0.963 / **0.976** |
+| Celeb-DF, frame / video AUC | 0.620 / 0.658 | **0.916 / 0.967** | 0.856 / 0.910 | 0.872 / 0.937 |
+
+On every lab protocol and on FF++ the gated fusion matches the better expert. On Celeb-DF it
+loses 0.030 video AUC to the ensemble alone: the gate gives v1 a mean weight of 0.40 on real
+Celeb-DF frames and 0.22 on fakes (0.995 and 0.998 on subject_holdout), so studio-quality
+interview video partly looks like the lab's photos to it, and v1 scores those real frames high.
+Switching hard at 0.5 (0.935) or sharpening the gate (0.935) did not help. Its lowest score across
+the seven tests is 0.937, the best worst case so far, but it does not meet the pass criterion
+(Celeb-DF video AUC ≥ 0.951 with subject_holdout AUC ≥ 0.99).
