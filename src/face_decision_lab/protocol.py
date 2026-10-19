@@ -34,6 +34,7 @@ PROTOCOLS = {
 CROSS_DATASET_PROTOCOLS = {
     "cross_celebdf": "celebdf",
     "cross_diff": "diff",
+    "cross_diffusionface": "diffusionface",
 }
 
 # FaceForensics++ protocols follow its official splits. "ffpp" is the in-domain test; the others
@@ -52,7 +53,7 @@ FFPP_GENERATORS = frozenset(
 # Datasets with their own test role; the lab's subject split never draws from them, since mixed in
 # they would change the subject shuffle and the split would no longer be the one every other model
 # was scored on.
-EXTERNAL_DATASETS = frozenset({"celebdf", "diff", "faceforensics"})
+EXTERNAL_DATASETS = frozenset({"celebdf", "diff", "diffusionface", "faceforensics"})
 
 
 def external_datasets(protocol: str) -> frozenset[str]:

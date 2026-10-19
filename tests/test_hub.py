@@ -48,3 +48,9 @@ def test_dataset_card_has_a_license_row_for_diff(make_sample):
     card = dataset_card([make_sample(source="diff", generator="diff_t2i_sdxl")], {})
 
     assert "DiFF" in card
+
+
+def test_dataset_card_has_a_license_row_for_diffusionface(make_sample):
+    card = dataset_card([make_sample(source="diffusionface", generator="diffusionface_real")], {})
+
+    assert "DiffusionFace" in card

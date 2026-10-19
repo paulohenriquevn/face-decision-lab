@@ -359,3 +359,24 @@ def test_evaluation_report_has_the_auc_of_each_generator(make_sample):
     samples, scores = _scored(make_sample)
 
     assert evaluation_report(samples, scores)["auc_by_generator"] == {"easy": 1.0, "hard": 0.0}
+
+
+def test_cross_diffusionface_tests_on_every_diffusionface_crop(make_sample):
+    lab, _ = _with_celebdf(make_sample, 900, 1)
+    faces = [
+        make_sample(
+            attack_type="bona_fide" if i % 2 else "fully_synthetic",
+            subject=f"diffusionface_{i}",
+            video=f"diffusionface/{i}",
+            source="diffusionface",
+            path=f"diffusionface/{i}.jpg",
+            generator="diffusionface_real" if i % 2 else "diffusionface_adm",
+        )
+        for i in range(40)
+    ]
+
+    train, calibration, test = protocol_split(lab + faces, "cross_diffusionface")
+
+    assert test == faces
+    assert "diffusionface" not in {s.source_dataset for s in train + calibration}
+    assert protocol_split(lab + faces, "subject_holdout") == protocol_split(lab, "subject_holdout")

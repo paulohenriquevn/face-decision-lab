@@ -10,6 +10,7 @@
 - Source adapters for DeepFakeFace and the AxonData anti-spoofing sample
 - Celeb-DF v2 adapter and a `cross_celebdf` protocol that trains on the lab data and tests on the official Celeb-DF v2 test videos
 - DiFF adapter for the official test split (T2I, I2I, FS and FE subsets) and a `cross_diff` protocol that tests on it
+- DiffusionFace adapter, a `cross_diffusionface` protocol, and `tar_members` to build a sample of a tar archive while streaming it
 - FaceForensics++ adapter with the official splits, and the `ffpp`, `ffpp_to_celebdf` and `lab_ffpp_to_celebdf` protocols
 - Video-level AUC (mean frame score per video) and the mean score of each generator in every evaluation report
 - AUC of each generator against all bona fide samples in every evaluation report, and `auc_by_group` for groups of generators such as DiFF's subsets

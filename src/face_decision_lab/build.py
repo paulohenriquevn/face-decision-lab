@@ -6,6 +6,7 @@ rebuilt from it, so a Colab session that dies halfway restarts where it stopped 
 """
 
 import json
+import tarfile
 import zipfile
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -163,6 +164,20 @@ def zip_members(path: Path, parse: Callable[[str], SourceItem | None]) -> Iterat
             item = parse(name)
             if item is not None:
                 yield item, archive.read(name)
+
+
+def tar_members(
+    stream, parse: Callable[[str], SourceItem | None], keep: Callable[[str], bool] = lambda name: True
+) -> Iterator[tuple[SourceItem, bytes]]:
+    """Reads a tar archive front to back from a non-seekable stream, such as an HTTP download, so
+    a sample of a large archive is built without storing the archive."""
+    with tarfile.open(fileobj=stream, mode="r|") as archive:
+        for member in archive:
+            if not member.isfile() or not keep(member.name):
+                continue
+            item = parse(member.name)
+            if item is not None:
+                yield item, archive.extractfile(member).read()
 
 
 def folder_files(root: Path, parse: Callable[[str], SourceItem | None]) -> Iterable[tuple[SourceItem, Path]]:

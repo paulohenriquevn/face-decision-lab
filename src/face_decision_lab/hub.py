@@ -59,6 +59,8 @@ SOURCE_ROWS = {
     "no redistribution (terms signed per researcher) | frames of the 518 official test videos |",
     "diff": "| [DiFF](https://github.com/xaCheng1996/DiFF) | synthesized images Apache 2.0; pristine images "
     "academic research only, no redistribution (form signed per researcher) | official test split |",
+    "diffusionface": "| [DiffusionFace](https://zenodo.org/records/10865300) part 1 | CC BY 4.0, research use only "
+    "per the authors | a fixed sample of image numbers from every folder |",
 }
 
 

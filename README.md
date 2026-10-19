@@ -37,13 +37,14 @@ Research only. The plan and its pass criteria are in
 | `notebooks/build_dataset.ipynb` | Builds the dataset on a Colab GPU and uploads it |
 | `notebooks/build_celebdf_test.ipynb` | Crops the official Celeb-DF v2 test videos into a separate private dataset |
 | `notebooks/build_diff_test.ipynb` | Crops the official DiFF test split (diffusion faces) into a separate private dataset |
+| `notebooks/build_diffusionface_test.ipynb` | Crops a fixed sample of DiffusionFace (diffusion faces with their real photos) into a separate private dataset |
 | `notebooks/build_faceforensics.ipynb` | Downloads FaceForensics++ c23 and crops it into a separate private dataset |
 | `notebooks/clip_baseline.ipynb` | Scores the CLIP linear probe under the same protocol |
 | `notebooks/clip_layernorm_detector.ipynb` | Trains and scores a LayerNorm-tuned CLIP detector (GenD recipe) per protocol |
 | `notebooks/score_pretrained_detectors.ipynb` | Scores the official GenD checkpoint and earlier lab detectors under every protocol, `cross_celebdf` included |
 | `notebooks/score_gend_variants.ipynb` | Scores the GenD CLIP and Perception Encoder checkpoints and their ensemble on square and aligned Celeb-DF crops |
 | `notebooks/score_gated_fusion.ipynb` | Gates between the lab detector and the GenD ensemble by predicted domain |
-| `notebooks/score_diff.ipynb` | Scores the photo detectors, GenD and their fusions on DiFF, with the AUC of each subset |
+| `notebooks/score_diffusion_benchmarks.ipynb` | Scores the photo detectors, GenD and their fusions on DiFF or DiffusionFace, with the AUC of each subset |
 | `notebooks/train_decision_model.ipynb` | Trains, calibrates and evaluates on Colab |
 
 ## Running

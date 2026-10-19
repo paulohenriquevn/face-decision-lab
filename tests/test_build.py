@@ -135,3 +135,28 @@ def test_builder_crops_with_the_cropper_it_was_given(tmp_path, wiki_item):
     [sample] = builder.samples
     assert calls == [Box(10, 10, 40, 40)]
     assert cv2.imread(str(tmp_path / sample.image_path)).shape == (32, 32, 3)
+
+
+def _tar_stream(files):
+    import io
+    import tarfile
+
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        for name, data in files.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+    buffer.seek(0)
+    return buffer
+
+
+def test_tar_members_reads_a_stream_once_and_keeps_only_the_chosen_members():
+    from face_decision_lab.build import tar_members
+    from face_decision_lab.sources import diffusionface
+
+    stream = _tar_stream({"Real/1.png": b"one", "Real/2.png": b"two", "Real/3.png": b"three"})
+
+    pairs = list(tar_members(stream, diffusionface.parse_member, keep=lambda name: name != "Real/2.png"))
+
+    assert [(item.path, data) for item, data in pairs] == [("Real/1.png", b"one"), ("Real/3.png", b"three")]

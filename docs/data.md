@@ -96,6 +96,27 @@ The pristine images, the bona fide side, come only through the authors' access f
 research and without redistribution. Their layout is not in the adapter yet; it fails on the first
 pristine member until it is.
 
+## Unseen test set: DiffusionFace
+
+`notebooks/build_diffusionface_test.ipynb` crops a fixed sample of DiffusionFace part 1 (Chen et
+al., arXiv 2403.18471) into a separate private dataset, the test side of the
+`cross_diffusionface` protocol. Nothing trains on it. Part 1 is open on Zenodo (record 10865300,
+CC BY 4.0, research use only per the authors): one tar of about 3 GB per folder, each holding
+`<folder>/<number>.png` at 256x256.
+
+| Folder | Label |
+|---|---|
+| `Real` (CelebA-HQ photos) | `bona_fide` |
+| `ADM`, `DDIM`, `DDPM`, `PNDM`, `LDM`, `MM_CelebA` | `fully_synthetic` |
+| `SDv15_DS{0.3,0.5,0.7}`, `SDv21_DS{0.3,0.5,0.7}` (image to image) | `fully_synthetic` |
+| `DiffSwap`, `Inpaint` | `face_swap` |
+
+An image's number is the number of the real photo it was made from, so the subject is
+`diffusionface_<number>` and a fake shares it with its source photo. The unconditional
+generators reuse the numbering without depicting the same person. The authors publish no test
+split; `diffusionface.sampled` keeps about one number in 20, the same numbers in every folder,
+and the notebook streams each tar once to collect them.
+
 ## FaceForensics++
 
 `notebooks/build_faceforensics.ipynb` downloads the c23 videos of the 1,000 originals and the four
