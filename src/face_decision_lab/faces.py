@@ -138,6 +138,18 @@ def tighten_crop(image, face_scale: float, crop_face_scale: float = CROP_FACE_SC
     return image.crop((left, top, left + side, top + side))
 
 
+def lower_resolution(image, side: int):
+    """The crop (PIL image) as it would look had the face been side px wide in the source: shrunk
+    to side x side, then enlarged back the way square_crop enlarges small faces."""
+    import cv2
+    from PIL import Image
+
+    if side >= min(image.size):
+        raise ValueError(f"side {side} is not below the image's {min(image.size)} px")
+    pixels = cv2.resize(np.asarray(image), (side, side), interpolation=cv2.INTER_AREA)
+    return Image.fromarray(cv2.resize(pixels, image.size, interpolation=cv2.INTER_CUBIC))
+
+
 def encode_jpeg(crop: np.ndarray) -> bytes:
     import cv2
 

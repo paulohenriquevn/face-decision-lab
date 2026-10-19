@@ -181,6 +181,30 @@ def test_tighten_crop_cannot_add_margin_the_crop_does_not_have():
         tighten_crop(Image.new("RGB", (256, 256)), face_scale=1.8)
 
 
+def test_lower_resolution_keeps_the_size_and_drops_the_detail():
+    from PIL import Image
+
+    from face_decision_lab.faces import lower_resolution
+
+    # A one-pixel checkerboard is pure high frequency; at 64 px it cannot survive.
+    pixels = (np.indices((256, 256)).sum(axis=0) % 2 * 255).astype(np.uint8)
+    image = Image.fromarray(np.stack([pixels] * 3, axis=-1))
+
+    lowered = lower_resolution(image, side=64)
+
+    assert lowered.size == (256, 256)
+    assert np.asarray(lowered).std() < 0.1 * np.asarray(image).std()
+
+
+def test_lower_resolution_cannot_raise_the_resolution():
+    from PIL import Image
+
+    from face_decision_lab.faces import lower_resolution
+
+    with pytest.raises(ValueError, match="side 300 is not below the image's 256 px"):
+        lower_resolution(Image.new("RGB", (256, 256)), side=300)
+
+
 # Landmarks in image order: two eyes, nose, two mouth corners (GenD's 5-point layout).
 def _face_landmarks(center_x=200.0, center_y=180.0, size=100.0):
     reference = [(0.34, 0.46), (0.66, 0.46), (0.5, 0.64), (0.37, 0.82), (0.63, 0.82)]
