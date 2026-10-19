@@ -325,3 +325,33 @@ interview video partly looks like the lab's photos to it, and v1 scores those re
 Switching hard at 0.5 (0.935) or sharpening the gate (0.935) did not help. Its lowest score across
 the seven tests is 0.937, the best worst case so far, but it does not meet the pass criterion
 (Celeb-DF video AUC ≥ 0.951 with subject_holdout AUC ≥ 0.99).
+
+## 2026-10-19: photo expert retrained with real video (experiment 2c)
+
+The gated fusion stopped at 0.937 because v1 scored real interview video as an attack (mean 0.416
+on YouTube-real, 0.490 on fakes). v2 is `clip_layernorm_detector.ipynb` at commit b962286 under
+`lab_ffpp_real`: the subject_holdout training side plus the FF++ original videos as bona fide,
+from CLIP as released, cross entropy, one epoch, batch 32, no augmentation, 1.5x crop. Fusions use
+`score_gated_fusion.ipynb` at b962286 with the GenD CLIP + PE ensemble as video expert.
+
+Mean attack score per Celeb-DF source (criterion (a): real below fake):
+
+| Detector | Celeb-real | YouTube-real | Celeb-synthesis (fake) |
+|---|---|---|---|
+| v1 | 0.245 | 0.416 | 0.490 |
+| v2 | **0.071** | **0.127** | 0.242 |
+
+| System | subject_holdout AUC / BPCER at APCER ≤ 5% | FF++ test frame / video AUC | Celeb-DF frame / video AUC |
+|---|---|---|---|
+| v2 alone | 0.9987 / 1.9% | 0.673 / 0.713 | 0.582 / 0.649 |
+| GenD ensemble alone | 0.891 / 64.3% | 0.964 / 0.976 | 0.916 / 0.967 |
+| Gated, v1 + ensemble | 0.998 / 1.1% | 0.963 / 0.976 | 0.872 / 0.937 |
+| Gated, v2 + ensemble | **0.9986 / 1.3%** | 0.961 / 0.976 | 0.880 / 0.948 |
+| Max, v2 + ensemble | 0.9965 / 2.9% | **0.964 / 0.976** | **0.903 / 0.957** |
+
+Criterion (a) passes. Criterion (b) (Celeb-DF video AUC ≥ 0.951 with subject_holdout AUC ≥ 0.99)
+passes for the max fusion of v2 and the GenD ensemble (0.957 and 0.9965) and misses by 0.003 for
+the gated one (0.948). Once v2 stops scoring real video as an attack, taking the larger score no
+longer lets the photo expert's false alarms through on video. The cost is photo BPCER: 2.9% for
+the max against 1.3% for the gated fusion. v2 trained on every generator, so it is scored on
+subject_holdout only; the unseen-generator protocols need a v2 trained per protocol.
