@@ -355,3 +355,28 @@ the gated one (0.948). Once v2 stops scoring real video as an attack, taking the
 longer lets the photo expert's false alarms through on video. The cost is photo BPCER: 2.9% for
 the max against 1.3% for the gated fusion. v2 trained on every generator, so it is scored on
 subject_holdout only; the unseen-generator protocols need a v2 trained per protocol.
+
+## 2026-10-19: DiFF test fakes, before the pristine images
+
+`notebooks/score_diff.ipynb` scored the 56,358 face crops of DiFF's test fakes (57,060 images;
+RetinaFace found a face in 96.0% to 100% of each method's images). The pristine images are
+granted through the authors' form and had not arrived, so there is no AUC yet: the table holds the
+share of fakes each detector scores above 0.5, per subset of the paper. None of the detectors
+trained on DiFF. v1 and v2 trained on DeepFakeFace, whose fakes include Stable Diffusion faces;
+the GenD checkpoints trained on FaceForensics++ only.
+
+| Detector | T2I | I2I | FS | FE |
+|---|---|---|---|---|
+| GenD CLIP | 0.717 | 0.598 | 0.978 | 0.732 |
+| GenD PE | 0.935 | 0.872 | 0.956 | 0.703 |
+| GenD ensemble (mean of CLIP and PE) | 0.921 | 0.850 | 0.972 | 0.745 |
+| v1 | 0.714 | 0.575 | 0.996 | 0.968 |
+| v2 | 0.851 | 0.756 | **1.000** | 0.994 |
+| Max, v1 + ensemble | 0.961 | 0.930 | 0.999 | 0.981 |
+| Max, v2 + ensemble | **0.976** | **0.956** | **1.000** | **0.997** |
+
+A share of flagged fakes is half of what an AUC measures: a detector that flags every image,
+real ones included, would top this table. The pristine side decides whether these detectors also
+leave real DiFF photos alone. What the table does show: the photo experts and GenD fail on
+different subsets (v1 and v2 on whole-face generation, T2I and I2I; GenD on face editing, FE), so
+the max fusion covers both, and v2 flags more DiFF fakes than v1 in every subset.
