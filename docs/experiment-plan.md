@@ -35,6 +35,7 @@ The decision model only counts as an improvement if it beats these on the same s
 | 2a | CLIP probe, GenD CLIP detector and decision model under `cross_celebdf` | frame AUC and video AUC of all three are reported on the same Celeb-DF crops |
 | 2b | Detector trained on lab data and FF++ (`lab_ffpp_to_celebdf`) vs the official GenD checkpoint | Celeb-DF video AUC at or above GenD's 0.951 on the same crops, with subject_holdout AUC at or above 0.99 |
 | 2c | Photo expert retrained with FF++ originals as bona fide (`lab_ffpp_real`), then gated with the GenD ensemble | (a) its mean score on real Celeb-DF frames is below its mean on fake ones; (b) the gated system reaches Celeb-DF video AUC ≥ 0.951 with subject_holdout AUC ≥ 0.99 |
+| 2d | v2 retrained with super-resolved copies of its real crops labeled bona fide (`lab_ffpp_real_sr`) | (a) DiffusionFace BPCER at APCER ≤ 5% at or below 39% (v2: 78.7%); (b) subject_holdout AUC at or above 0.9937 (v2: 0.9987); (c) Celeb-DF video AUC at or above v2's 0.649 |
 | 2 | Decision model vs CLIP probe, train FF++, test Celeb-DF v2 | decision model AUC is higher than the CLIP probe AUC on the same test crops |
 | 3 | Decision model vs MiniFASNet, train CelebA-Spoof, test OULU-NPU | decision model BPCER at APCER ≤ 5% is lower than MiniFASNet's |
 | 4 | Frozen vision tower as a limit | if experiments 2 and 3 fail, a run with vision layers unfrozen changes the result; otherwise the frozen encoder is ruled out as the cause |

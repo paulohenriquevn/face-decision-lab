@@ -9,6 +9,7 @@ from collections.abc import Callable
 from .labels import BONA_FIDE
 from .manifest import FaceSample
 from .metrics import auc, bpcer_at_apcer, eer, operating_point
+from .pairs import pair_key
 from .splits import capped, standard_split
 
 SEED = 3407
@@ -50,16 +51,22 @@ FFPP_GENERATORS = frozenset(
 # video, and tests on the subject_holdout test side: a photo detector that must stop flagging real
 # video as an attack without learning FF++'s manipulations.
 
+# Protocols that add super-resolved copies of their base protocol's training-side reals, labeled
+# bona fide (sources/superresolved.py), and keep its calibration and test sides.
+SUPER_RESOLVED_PROTOCOLS = {"lab_ffpp_real_sr": "lab_ffpp_real"}
+
 # Datasets with their own test role; the lab's subject split never draws from them, since mixed in
 # they would change the subject shuffle and the split would no longer be the one every other model
 # was scored on.
-EXTERNAL_DATASETS = frozenset({"celebdf", "diff", "diffusionface", "faceforensics"})
+EXTERNAL_DATASETS = frozenset({"celebdf", "diff", "diffusionface", "faceforensics", "superresolved"})
 
 
 def external_datasets(protocol: str) -> frozenset[str]:
     """The external datasets a protocol needs loaded next to the lab data."""
     if protocol in CROSS_DATASET_PROTOCOLS:
         return frozenset({CROSS_DATASET_PROTOCOLS[protocol]})
+    if protocol in SUPER_RESOLVED_PROTOCOLS:
+        return external_datasets(SUPER_RESOLVED_PROTOCOLS[protocol]) | {"superresolved"}
     if protocol in ("ffpp", "lab_ffpp_real"):
         return frozenset({"faceforensics"})
     if protocol in FFPP_PROTOCOLS:
@@ -75,8 +82,11 @@ def protocol_split(
         return _cross_dataset_split(samples, CROSS_DATASET_PROTOCOLS[protocol])
     if protocol in FFPP_PROTOCOLS:
         return _ffpp_split(samples, protocol)
+    if protocol in SUPER_RESOLVED_PROTOCOLS:
+        return _super_resolved_split(samples, SUPER_RESOLVED_PROTOCOLS[protocol])
     if protocol not in PROTOCOLS:
         known = sorted(PROTOCOLS) + sorted(CROSS_DATASET_PROTOCOLS) + sorted(FFPP_PROTOCOLS)
+        known += sorted(SUPER_RESOLVED_PROTOCOLS)
         raise ValueError(f"unknown protocol {protocol!r}; choose one of {known}")
     samples = [s for s in samples if s.source_dataset not in EXTERNAL_DATASETS]
     held_out = PROTOCOLS[protocol]
@@ -121,6 +131,16 @@ def _ffpp_split(
         return sides["train"], sides["val"], celebdf
     lab_train, lab_calibration, _ = protocol_split(samples, "subject_holdout")
     return lab_train + sides["train"], lab_calibration + sides["val"], celebdf
+
+
+def _super_resolved_split(
+    samples: list[FaceSample], base: str
+) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
+    train, calibration, test = protocol_split(samples, base)
+    # A copy of a calibration or test photo would leak that photo into training.
+    trained = {pair_key(s) for s in train if s.is_bona_fide}
+    copies = [s for s in _from(samples, "superresolved") if pair_key(s) in trained]
+    return train + copies, calibration, test
 
 
 def video_scores(samples: list[FaceSample], scores: list[float]) -> tuple[list[str], list[float]]:

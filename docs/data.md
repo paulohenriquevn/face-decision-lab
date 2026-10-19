@@ -141,6 +141,20 @@ after the access form and lives in a Colab secret, never in this repository.
 Unofficial copies of FaceForensics++, Celeb-DF and CelebA-Spoof on the Hub are left out: they skip
 the access agreements of the original authors.
 
+## Super-resolved real crops
+
+`notebooks/build_superresolved.ipynb` takes every real crop on the training side of
+`lab_ffpp_real` (DeepFakeFace photos and FaceForensics++ original frames), shrinks it 4x and
+enlarges it back with Real-ESRGAN x4plus (BSD-3-Clause) or Swin2SR real-world x4 (Apache-2.0),
+half the crops each, and uploads the copies to a separate private dataset. Each copy is labeled
+`bona_fide` with source_dataset `superresolved` and generator `sr_<network>`, and keeps the
+subject and pair group of its original (`sources/superresolved.py`). The copies inherit the terms
+of the crops they come from.
+
+Only `lab_ffpp_real_sr` uses them, and only for originals on its training side; every other
+protocol leaves them out. They test the diagnosis that the lab's detectors flag DiffusionFace's
+CelebA-HQ photos because a super-resolution network made them (`docs/results.md`).
+
 ## Datasets to add through their authors
 
 All of them are research-only and need an access request to their authors. Read each license

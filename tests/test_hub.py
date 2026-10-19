@@ -54,3 +54,9 @@ def test_dataset_card_has_a_license_row_for_diffusionface(make_sample):
     card = dataset_card([make_sample(source="diffusionface", generator="diffusionface_real")], {})
 
     assert "DiffusionFace" in card
+
+
+def test_dataset_card_has_a_license_row_for_super_resolved_reals(make_sample):
+    card = dataset_card([make_sample(source="superresolved", generator="sr_realesrgan_x4plus")], {})
+
+    assert "Real-ESRGAN or Swin2SR" in card

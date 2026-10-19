@@ -380,3 +380,45 @@ def test_cross_diffusionface_tests_on_every_diffusionface_crop(make_sample):
     assert test == faces
     assert "diffusionface" not in {s.source_dataset for s in train + calibration}
     assert protocol_split(lab + faces, "subject_holdout") == protocol_split(lab, "subject_holdout")
+
+
+def _super_resolved_copies(samples):
+    from face_decision_lab.sources import superresolved
+
+    return [
+        superresolved.super_resolved(s, superresolved.network_for(s), f"sr/{s.image_path}")
+        for s in samples
+        if s.is_bona_fide
+    ]
+
+
+def test_lab_ffpp_real_sr_adds_copies_of_the_training_side_reals_only(make_sample):
+    from face_decision_lab.pairs import pair_key
+
+    lab, celebdf = _with_celebdf(make_sample, 900, 1)
+    ffpp = _ffpp(make_sample)
+    copies = _super_resolved_copies(lab + ffpp)  # of every real crop, test side included
+
+    train, calibration, test = protocol_split(lab + ffpp + celebdf + copies, "lab_ffpp_real_sr")
+
+    base_train, base_calibration, base_test = protocol_split(lab + ffpp + celebdf, "lab_ffpp_real")
+    added = [s for s in train if s.source_dataset == "superresolved"]
+    trained_reals = [s for s in base_train if s.is_bona_fide]
+    assert len(added) == len(trained_reals)
+    assert {pair_key(s) for s in added} == {pair_key(s) for s in trained_reals}
+    assert [s for s in train if s.source_dataset != "superresolved"] == base_train
+    assert (calibration, test) == (base_calibration, base_test)
+
+
+def test_lab_protocols_ignore_super_resolved_copies(make_sample):
+    lab = _samples(make_sample, 900)
+
+    with_copies = protocol_split(lab + _super_resolved_copies(lab), "subject_holdout")
+
+    assert with_copies == protocol_split(lab, "subject_holdout")
+
+
+def test_lab_ffpp_real_sr_needs_the_super_resolved_build():
+    from face_decision_lab.protocol import external_datasets
+
+    assert external_datasets("lab_ffpp_real_sr") == {"faceforensics", "superresolved"}
