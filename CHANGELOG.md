@@ -19,6 +19,7 @@
 - `lab_ffpp_real_sr` protocol and the `superresolved` source: copies of the training-side real crops enlarged by a super-resolution network, labeled bona fide
 - DF40 adapter for the FF++-domain frames of its 31 known methods and its 9 unknown methods, the `df40_ff` and `lab_df40` protocols, and `auc_within_groups` to score each method against its own reals
 - `http_range_reader` and `remote_zip_members` to crop a sample of a remote zip archive from HTTP byte ranges, without downloading it
+- `download_ranges` to download a whole archive in large byte ranges, continuing a partial file
 - `bootstrap_interval` for confidence intervals that resample whole subjects, and `score_files` to save every crop's detector scores
 - Face alignment on 5 landmarks with GenD's reference points (`aligned_crop`), selectable per build, and landmarks kept on detected boxes
 - `tighten_crop` to reframe a built crop to the face margin a pretrained detector expects
@@ -37,3 +38,6 @@
 - Upload of the trained adapter and its evaluation report to a private Hugging Face model repository
 - Smoke mode that runs the whole training pipeline on generated noise images, with no face data
 - Colab notebook that trains, calibrates and evaluates a Qwen3.5-4B decision model on face crops
+
+### Fixed
+- Single images that share a video, such as the frames of one DF40 video, no longer overwrite each other's crop file; each gets its own

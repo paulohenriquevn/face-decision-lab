@@ -111,6 +111,31 @@ def test_add_images_records_every_image_in_input_order(tmp_path):
     assert [s.subject_id for s in builder.samples] == [f"imdbwiki_{i}" for i in range(10)]
 
 
+def test_images_of_one_video_get_one_crop_file_each(tmp_path):
+    from face_decision_lab.sources.base import SourceItem
+
+    def frame(name):
+        return SourceItem(
+            path=f"df40/DiT/{name}",
+            attack_type="fully_synthetic",
+            subject_id="ffpp_001",
+            video_id="df40/DiT/001",
+            source_dataset="df40",
+            generator="df40_dit",
+        )
+
+    builder = DatasetBuilder(tmp_path, one_face)
+    builder.add_image(frame("001/0.png"), jpeg(color=40))
+    builder.add_images([(frame("001/1.png"), jpeg(color=200))])
+
+    first, second = builder.samples
+    assert first.image_path != second.image_path
+    assert (
+        cv2.imread(str(tmp_path / first.image_path)).mean()
+        < cv2.imread(str(tmp_path / second.image_path)).mean()
+    )
+
+
 def test_add_images_skips_images_already_processed(tmp_path, wiki_item):
     builder = DatasetBuilder(tmp_path, one_face)
     builder.add_image(wiki_item, jpeg())
@@ -281,3 +306,48 @@ def test_http_range_reader_waits_out_a_temporary_refusal():
 
     assert reader.size == 10
     assert len(waits) == 1
+
+
+def test_download_ranges_writes_the_whole_file_in_chunks(tmp_path):
+    from face_decision_lab.build import RangeReader, download_ranges
+
+    data = bytes(range(256)) * 4
+    asked = []
+
+    def fetch(start, end):
+        asked.append((start, end))
+        return data[start : end + 1]
+
+    path = tmp_path / "a.zip"
+    download_ranges(RangeReader(fetch, len(data)), path, chunk=300)
+
+    assert path.read_bytes() == data
+    assert asked == [(0, 299), (300, 599), (600, 899), (900, 1023)]
+
+
+def test_download_ranges_resumes_a_partial_file(tmp_path):
+    from face_decision_lab.build import RangeReader, download_ranges
+
+    data = b"abcdefghij"
+    path = tmp_path / "a.zip"
+    path.write_bytes(data[:4])
+    asked = []
+
+    def fetch(start, end):
+        asked.append((start, end))
+        return data[start : end + 1]
+
+    download_ranges(RangeReader(fetch, len(data)), path, chunk=100)
+
+    assert path.read_bytes() == data
+    assert asked == [(4, 9)]
+
+
+def test_download_ranges_refuses_a_file_longer_than_the_remote_one(tmp_path):
+    from face_decision_lab.build import RangeReader, download_ranges
+
+    path = tmp_path / "a.zip"
+    path.write_bytes(b"x" * 20)
+
+    with pytest.raises(OSError, match="is 20 bytes, longer than the 10 bytes"):
+        download_ranges(RangeReader(lambda start, end: b"", 10), path)

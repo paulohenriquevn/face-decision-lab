@@ -5,6 +5,7 @@ The build is resumable. Every source file that was handled, whatever its outcome
 rebuilt from it, so a Colab session that dies halfway restarts where it stopped and loses nothing.
 """
 
+import hashlib
 import io
 import json
 import tarfile
@@ -65,6 +66,12 @@ def video_frames(path: Path, count: int) -> Iterator[tuple[int, np.ndarray | Non
         capture.release()
 
 
+def _image_label(item: SourceItem) -> str:
+    """File label of a single image: a digest of its source path, since several images of one
+    video (the frames of a DF40 video) share a video_id."""
+    return hashlib.sha1(item.path.encode()).hexdigest()[:12]
+
+
 class DatasetBuilder:
     def __init__(
         self,
@@ -100,7 +107,7 @@ class DatasetBuilder:
         if key in self._done:
             return
         crop, outcome = crop_frame(decode_image(data), self.detector, self.cropper)
-        self._record(item, key, [(0, crop, outcome)])
+        self._record(item, key, [(_image_label(item), crop, outcome)])
 
     def add_images(
         self, items: Iterable[tuple[SourceItem, bytes]], workers: int = 8, batch: int = 256
@@ -120,7 +127,9 @@ class DatasetBuilder:
                     lambda pair: crop_frame(decode_image(pair[1]), self.detector, self.cropper), chunk
                 )
                 for (item, _), (crop, outcome) in zip(chunk, crops, strict=True):
-                    self._record(item, f"{item.source_dataset}:{item.path}", [(0, crop, outcome)])
+                    self._record(
+                        item, f"{item.source_dataset}:{item.path}", [(_image_label(item), crop, outcome)]
+                    )
                 processed += len(chunk)
         return processed
 
@@ -129,18 +138,19 @@ class DatasetBuilder:
         if key in self._done:
             return
         results = [
-            (index, *crop_frame(frame, self.detector, self.cropper))
+            (f"{index:05d}", *crop_frame(frame, self.detector, self.cropper))
             for index, frame in video_frames(path, self.frames_per_video)
         ]
         self._record(item, key, results)
 
-    def _record(self, item: SourceItem, key: str, results: list[tuple[int, bytes | None, Outcome]]) -> None:
+    def _record(self, item: SourceItem, key: str, results: list[tuple[str, bytes | None, Outcome]]) -> None:
+        """results holds (label, crop, outcome) per frame; the crop is saved as <video_id>_<label>.jpg."""
         new_samples = []
-        for index, crop, outcome in results:
+        for label, crop, outcome in results:
             self.report.add(item.generator, outcome)
             if crop is None:
                 continue
-            relative = Path("images") / item.source_dataset / f"{item.video_id}_{index:05d}.jpg"
+            relative = Path("images") / item.source_dataset / f"{item.video_id}_{label}.jpg"
             target = self.output_dir / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(crop)
@@ -243,6 +253,20 @@ def http_range_reader(
 
     content_range, _ = get(0, 0)
     return RangeReader(lambda start, end: get(start, end)[1], int(content_range.rsplit("/", 1)[1]))
+
+
+def download_ranges(reader: RangeReader, path: Path, chunk: int = 1 << 26) -> None:
+    """Writes the whole remote file to path in ranges of chunk bytes, continuing a partial file.
+    A few hundred large ranges get an archive past Google Drive's refusal of whole downloads
+    without the many thousands of small requests after which it refuses ranges too."""
+    path = Path(path)
+    done = path.stat().st_size if path.exists() else 0
+    if done > reader.size:
+        raise OSError(f"{path} is {done} bytes, longer than the {reader.size} bytes of the remote file")
+    with path.open("ab") as file:
+        for start in range(done, reader.size, chunk):
+            file.write(reader.fetch(start, min(start + chunk, reader.size) - 1))
+            file.flush()
 
 
 def remote_zip_members(
