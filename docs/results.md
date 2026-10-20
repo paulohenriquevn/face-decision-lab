@@ -356,7 +356,7 @@ longer lets the photo expert's false alarms through on video. The cost is photo 
 the max against 1.3% for the gated fusion. v2 trained on every generator, so it is scored on
 subject_holdout only; the unseen-generator protocols need a v2 trained per protocol.
 
-## 2026-10-19: DiFF test fakes, before the pristine images
+## 2026-10-19: DiFF test fakes, before the pristine images (superseded below)
 
 `notebooks/score_diff.ipynb` scored the 56,358 face crops of DiFF's test fakes (57,060 images;
 RetinaFace found a face in 96.0% to 100% of each method's images). The pristine images are
@@ -380,6 +380,36 @@ real ones included, would top this table. The pristine side decides whether thes
 leave real DiFF photos alone. What the table does show: the photo experts and GenD fail on
 different subsets (v1 and v2 on whole-face generation, T2I and I2I; GenD on face editing, FE), so
 the max fusion covers both, and v2 flags more DiFF fakes than v1 in every subset.
+
+## 2026-10-19: DiFF with its pristine images
+
+`score_diffusion_benchmarks.ipynb` at commit 51caa62 scored DiFF's test split with its pristine
+side: 56,358 fake crops and 23,723 pristine crops (RetinaFace found a face in 23,723 of the 23,731
+pristine test images). AUC per subset is every pristine image against that subset's fakes, the
+protocol of the DiFF paper. None of the detectors trained on DiFF; v1 and v2 trained on
+DeepFakeFace, which holds Stable Diffusion faces, and the GenD checkpoints on FaceForensics++ only.
+
+| Detector | T2I | I2I | FS | FE | Mean of subsets | AUC, all | BPCER at APCER ≤ 5% |
+|---|---|---|---|---|---|---|---|
+| GenD CLIP | 0.838 | 0.794 | 0.978 | 0.839 | 0.862 | 0.843 | 52.4% |
+| GenD PE | **0.969** | **0.955** | 0.987 | 0.911 | 0.955 | **0.952** | 38.5% |
+| GenD ensemble | 0.957 | 0.936 | 0.989 | 0.902 | 0.946 | 0.940 | 43.8% |
+| v1 | 0.821 | 0.751 | 0.984 | 0.957 | 0.878 | 0.860 | 75.5% |
+| v2 | 0.937 | 0.920 | 0.991 | **0.978** | **0.956** | 0.950 | 18.0% |
+| Max, v1 + ensemble | 0.902 | 0.872 | **0.994** | 0.958 | 0.931 | 0.921 | 28.0% |
+| Max, v2 + ensemble | 0.934 | 0.918 | 0.993 | 0.977 | 0.955 | 0.949 | **17.5%** |
+
+v2 and the official GenD PE reach the same mean AUC over the four subsets (0.956 and 0.955) from
+opposite sides: GenD PE is best on whole-face generation (T2I, I2I), v2 on face editing (FE), and
+v2 leaves far fewer real photos flagged at the APCER 5% point (18.0% against 38.5%). Taking the
+larger score adds nothing here. GenD PE's number is the fair one to compare with published
+FF++-trained detectors, since it never saw a diffusion face; v2's training included Stable
+Diffusion faces. We have not verified a published DiFF number to compare with: the per-subset
+table of FS-VFM (arXiv 2510.10663, Table V) did not come through when we fetched the paper.
+
+These are much better than the same detectors on DiffusionFace (AUC 0.69 to 0.76). DiFF's
+pristine photos are not CelebA-HQ, which the diagnosis further down found to be what the lab's detectors
+flag.
 
 ## 2026-10-19: DiffusionFace, the first AUC on unseen diffusion faces
 
