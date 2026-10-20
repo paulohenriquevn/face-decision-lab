@@ -771,3 +771,30 @@ The three-way fusion, every part trained on FF++ c23 alone, holds the lab's vide
 video AUC 0.957, the max fusion's) and adds 2.45 points of DiFF mean over the best single
 detector. It was picked after seeing DiFF and Celeb-DF, out of six fusions, so it still needs a
 test set that played no part in the choice, such as DiffusionFace or DF40's unknown methods.
+
+## 2026-10-20: the three-way fusion on DiffusionFace, a test that played no part in choosing it
+
+`score_diffusion_benchmarks.ipynb` at commit 8944034 scored the same detectors on the DiffusionFace
+sample (20,909 crops, 1,490 bona fide CelebA-HQ photos), with thresholds from the FF++ validation
+originals. The check was written down before the scores existed: the fusion of FS-VFM ViT-L, GenD
+CLIP and GenD PE is confirmed if its AUC interval lies above every single detector's. AUC in
+percent, 500 resamples of whole subjects.
+
+| Detector | AUC [95% CI] | FF++ threshold: detection (DiffusionFace BPCER) at 0.1%, 0.2%, 0.5% |
+|---|---|---|
+| FS-VFM ViT-L/16 | 53.80 [52.86, 54.59] | 44.5% (40.40%), 59.7% (57.58%), 81.8% (80.07%) |
+| Lab recipe, `ffpp_deepfakes_to_diff` | 66.68 [65.69, 67.47] | 2.7% (0%), 6.8% (0.13%), 10.6% (0.13%) |
+| GenD ensemble | 72.47 [71.62, 73.34] | 2.3% (0%), 2.7% (0%), 15.2% (1.14%) |
+| v1 | 74.35 [73.25, 75.44] | 45.8% (14.83%), 58.9% (22.48%), 77.5% (42.01%) |
+| v2 | 73.14 [72.03, 74.16] | 90.7% (66.24%), 95.1% (77.32%), 99.2% (93.42%) |
+| FS-VFM ViT-L + GenD CLIP + GenD PE | 70.80 [69.97, 71.67] | 36.0% (9.87%), 40.3% (12.62%), 53.0% (21.68%) |
+
+The check fails: the fusion sits below the GenD ensemble and v1. FS-VFM ViT-L is near chance and
+flags 40% of DiffusionFace's real photos at a threshold meant for 0.1%.
+
+A post hoc diagnostic, not a confirmation, sets DiffusionFace's fakes against DiFF's reals: FS-VFM
+ViT-L reaches 94.06, v2 96.77 and the fusion 97.01. The fakes are detected; what fails is the real
+side, CelebA-HQ photos that every detector here scores higher than DiFF's reals (the fusion's mean
+standardized score is 2.25 on them against 0.52 on DiFF's). For a face check this is the BPCER
+problem itself: the fusion's lead on DiFF does not survive a change of real-photo source, so it is
+no candidate for a state-of-the-art claim until it scores unfamiliar real photos as real.
