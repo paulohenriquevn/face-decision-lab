@@ -212,9 +212,17 @@ class RangeReader(io.RawIOBase):
         return taken
 
 
-def http_range_reader(url: str, attempts: int = 5, urlopen=urllib.request.urlopen) -> RangeReader:
+class RangeRefusedError(OSError):
+    """The server answered something other than the requested byte range."""
+
+
+def http_range_reader(
+    url: str, attempts: int = 6, urlopen=urllib.request.urlopen, sleep: Callable[[float], None] = time.sleep
+) -> RangeReader:
     """A RangeReader over an HTTP URL that answers byte ranges. Google Drive keeps answering ranges
-    of a file after it refuses whole downloads of it for the day ("Quota exceeded")."""
+    of a file after it refuses whole downloads of it for the day ("Quota exceeded"), but after many
+    thousands of requests from one address it answers a page for a while; such a refusal, like a
+    network error, is retried with a growing wait."""
 
     def get(start: int, end: int):
         request = urllib.request.Request(url, headers={"Range": f"bytes={start}-{end}"})
@@ -223,12 +231,14 @@ def http_range_reader(url: str, attempts: int = 5, urlopen=urllib.request.urlope
                 with urlopen(request, timeout=120) as response:
                     if response.status != 206:
                         kind = response.headers.get("Content-Type", "unknown type")
-                        raise OSError(f"{url} did not answer a byte range (status {response.status}, {kind})")
+                        raise RangeRefusedError(
+                            f"{url} did not answer a byte range (status {response.status}, {kind})"
+                        )
                     return response.headers["Content-Range"], response.read()
-            except (TimeoutError, ConnectionError, urllib.error.URLError):
+            except (TimeoutError, ConnectionError, urllib.error.URLError, RangeRefusedError):
                 if attempt == attempts - 1:
                     raise
-                time.sleep(2**attempt)
+                sleep(min(5 * 2**attempt, 300))
         raise AssertionError("unreachable")
 
     content_range, _ = get(0, 0)
@@ -239,7 +249,7 @@ def remote_zip_members(
     reader: RangeReader,
     parse: Callable[[str], SourceItem | None],
     keep: Callable[[SourceItem], bool] = lambda item: True,
-    workers: int = 16,
+    workers: int = 8,
 ) -> Iterator[tuple[SourceItem, bytes]]:
     """Reads the kept members of a zip archive behind reader, in archive order, fetching only the
     central directory and those members, each with one ranged request on a thread pool, so a sample

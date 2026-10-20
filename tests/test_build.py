@@ -239,7 +239,7 @@ def test_http_range_reader_fails_loudly_on_a_page_instead_of_bytes():
     with pytest.raises(
         OSError, match="https://example.org/a.zip did not answer a byte range .status 200, text/html"
     ):
-        http_range_reader("https://example.org/a.zip", urlopen=urlopen)
+        http_range_reader("https://example.org/a.zip", urlopen=urlopen, sleep=lambda seconds: None)
 
 
 def test_remote_zip_members_reads_stored_and_deflated_members_in_parallel():
@@ -262,3 +262,22 @@ def test_remote_zip_members_reads_stored_and_deflated_members_in_parallel():
     assert [(item.path, payload) for item, payload in pairs] == [
         (f"Real/{n}.png", bytes([n]) * 5000) for n in range(30)
     ]
+
+
+def test_http_range_reader_waits_out_a_temporary_refusal():
+    from face_decision_lab.build import http_range_reader
+
+    answers = [_Response(200, {"Content-Type": "text/html"}, b"<html>"), None]
+    waits = []
+
+    def urlopen(request, timeout):
+        answer = answers.pop(0)
+        if answer is not None:
+            return answer
+        start, end = map(int, request.headers["Range"].removeprefix("bytes=").split("-"))
+        return _Response(206, {"Content-Range": f"bytes {start}-{end}/10"}, b"a" * (end - start + 1))
+
+    reader = http_range_reader("https://example.org/a.zip", urlopen=urlopen, sleep=waits.append)
+
+    assert reader.size == 10
+    assert len(waits) == 1
