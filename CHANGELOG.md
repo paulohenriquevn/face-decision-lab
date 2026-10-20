@@ -16,6 +16,7 @@
 - AUC of each generator against all bona fide samples in every evaluation report, and `auc_by_group` for groups of generators such as DiFF's subsets
 - `lab_ffpp_real` protocol: the lab's training side plus the FF++ originals as bona fide video
 - `lab_ffpp_real_sr` protocol and the `superresolved` source: copies of the training-side real crops enlarged by a super-resolution network, labeled bona fide
+- DF40 adapter for the FF++-domain frames of its 31 known methods and its 9 unknown methods, the `df40_ff` and `lab_df40` protocols, and `auc_within_groups` to score each method against its own reals
 - Face alignment on 5 landmarks with GenD's reference points (`aligned_crop`), selectable per build, and landmarks kept on detected boxes
 - `tighten_crop` to reframe a built crop to the face margin a pretrained detector expects
 - `lower_resolution` to show a crop as it would look had the face been smaller in the source

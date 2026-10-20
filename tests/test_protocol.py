@@ -422,3 +422,104 @@ def test_lab_ffpp_real_sr_needs_the_super_resolved_build():
     from face_decision_lab.protocol import external_datasets
 
     assert external_datasets("lab_ffpp_real_sr") == {"faceforensics", "superresolved"}
+
+
+def _df40(make_sample):
+    from face_decision_lab.sources import df40, faceforensics
+
+    names = []
+    for split in ("train", "val", "test"):
+        for target, source in faceforensics.OFFICIAL_SPLITS[split][:3]:
+            names += [("train", "simswap", f"simswap/frames/{target}_{source}/00{i}.png") for i in range(2)]
+            names += [("train", "sd2.1", f"sd2.1/{target}/00{i}_325.png") for i in range(2)]
+            names += [
+                ("real", None, f"FaceForensics++/original_sequences/youtube/c23/frames/{target}/00{i}.png")
+                for i in range(2)
+            ]
+            names += [("unknown", "e4e", f"e4e/e4e/ff/{target}/00{i}.jpg") for i in range(2)]
+    names += [
+        ("unknown", "MidJourney", f"MidJourney/{label}/{i}.jpg")
+        for label in ("fake", "real")
+        for i in range(3)
+    ]
+    parse = {
+        "train": df40.parse_train_member,
+        "real": lambda _, name: df40.parse_real_member(name),
+        "unknown": df40.parse_unknown_member,
+    }
+    items = [parse[kind](archive, name) for kind, archive, name in names]
+    return [
+        make_sample(
+            attack_type=i.attack_type,
+            subject=i.subject_id,
+            video=i.video_id,
+            source=i.source_dataset,
+            path=i.path,
+            generator=i.generator,
+        )
+        for i in items
+    ]
+
+
+def test_df40_ff_trains_on_known_methods_of_training_sequences_and_tests_on_unknown_methods(make_sample):
+    from face_decision_lab.sources import df40
+
+    train, calibration, test = protocol_split(_df40(make_sample), "df40_ff")
+
+    assert {df40.official_split(s) for s in train} == {"train"}
+    assert {df40.official_split(s) for s in calibration} == {"val"}
+    assert {s.generator for s in train} == {"df40_simswap", "df40_sd2.1", "df40_ffpp_real"}
+    assert {s.generator for s in test} == {
+        "df40_e4e",
+        "df40_ffpp_real",
+        "df40_midjourney",
+        "df40_midjourney_real",
+    }
+    # e4e inverts FF++ frames: only its test sequences, scored against the real frames of those.
+    assert {df40.official_split(s) for s in test if s.subject_id.startswith("ffpp_")} == {"test"}
+
+
+def test_lab_df40_adds_df40_training_frames_to_lab_ffpp_real(make_sample):
+    lab, celebdf = _with_celebdf(make_sample, 900, 1)
+    ffpp, df40_samples = _ffpp(make_sample), _df40(make_sample)
+
+    train, calibration, test = protocol_split(lab + ffpp + celebdf + df40_samples, "lab_df40")
+
+    base_train, base_calibration, base_test = protocol_split(lab + ffpp + celebdf, "lab_ffpp_real")
+    df40_train, df40_calibration, _ = protocol_split(df40_samples, "df40_ff")
+    assert train == base_train + df40_train
+    assert calibration == base_calibration + df40_calibration
+    assert test == base_test
+
+
+def test_df40_protocols_load_their_external_datasets():
+    from face_decision_lab.protocol import external_datasets
+
+    assert external_datasets("df40_ff") == {"df40"}
+    assert external_datasets("lab_df40") == {"faceforensics", "df40"}
+
+
+def test_auc_within_groups_scores_each_method_against_its_own_reals(make_sample):
+    from face_decision_lab.protocol import auc_within_groups
+
+    samples = [
+        make_sample(attack_type="bona_fide", generator="a_real", video="1"),
+        make_sample(attack_type="fully_synthetic", generator="a", video="2"),
+        make_sample(attack_type="bona_fide", generator="b_real", video="3"),
+        make_sample(attack_type="fully_synthetic", generator="b", video="4"),
+    ]
+    # b's fake outscores b's real but not a's real: only b's own reals count.
+    scores = [0.9, 0.95, 0.1, 0.5]
+
+    result = auc_within_groups(samples, scores, lambda s: s.generator.removesuffix("_real"))
+
+    assert result == {"a": 1.0, "b": 1.0}
+
+
+def test_auc_within_groups_rejects_a_group_without_both_classes(make_sample):
+    from face_decision_lab.protocol import auc_within_groups
+
+    samples = [make_sample(attack_type="fully_synthetic", generator="a", video="1")]
+
+    with pytest.raises(MetricInputError, match="group 'a' needs bona fide and attack samples"):
+        auc_within_groups(samples, [0.5], lambda s: s.generator)

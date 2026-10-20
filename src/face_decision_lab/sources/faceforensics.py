@@ -68,4 +68,11 @@ def official_split(sample: FaceSample | SourceItem) -> str:
     """The official split ("train", "val" or "test") of the target sequence."""
     if sample.source_dataset != SOURCE_DATASET or not sample.subject_id.startswith("ffpp_"):
         raise ValueError(f"not a FaceForensics++ sample: {sample.subject_id!r} ({sample.source_dataset})")
-    return _SPLIT_OF_SEQUENCE[sample.subject_id.removeprefix("ffpp_")]
+    return split_of_sequence(sample.subject_id.removeprefix("ffpp_"))
+
+
+def split_of_sequence(sequence: str) -> str:
+    """The official split of a sequence id such as "071"."""
+    if sequence not in _SPLIT_OF_SEQUENCE:
+        raise ValueError(f"{sequence!r} is not a FaceForensics++ sequence in the official splits")
+    return _SPLIT_OF_SEQUENCE[sequence]

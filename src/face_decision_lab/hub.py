@@ -61,6 +61,8 @@ SOURCE_ROWS = {
     "academic research only, no redistribution (form signed per researcher) | official test split |",
     "diffusionface": "| [DiffusionFace](https://zenodo.org/records/10865300) part 1 | CC BY 4.0, research use only "
     "per the authors | a fixed sample of image numbers from every folder |",
+    "df40": "| [DF40](https://github.com/YZY-stack/DF40) | CC BY-NC 4.0, non-commercial research only, no "
+    "redistribution (form signed per researcher) | FF++-domain frames of 31 methods and the 9 unknown methods |",
     "superresolved": "| DeepFakeFace and FaceForensics++ real crops | the terms of their source crops "
     "| training-side real crops shrunk 4x and enlarged back by Real-ESRGAN or Swin2SR |",
 }

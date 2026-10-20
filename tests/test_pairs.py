@@ -143,3 +143,24 @@ def test_max_group_leaves_small_groups_whole(make_sample):
     samples = [_sample(make_sample, _dff(g, str(p))) for p in range(10) for g in deepfakeface.GENERATORS]
 
     assert paired_batches(samples, 8, seed=3, max_group=10) == paired_batches(samples, 8, seed=3)
+
+
+def test_df40_frames_pair_with_the_ffpp_sequence_they_were_made_from(make_sample):
+    from face_decision_lab.sources import df40, faceforensics
+
+    items = [
+        df40.parse_train_member("simswap", "simswap/frames/071_054/001.png"),
+        df40.parse_train_member("sd2.1", "sd2.1/071/001_325.png"),
+        df40.parse_real_member("FaceForensics++/original_sequences/youtube/c23/frames/071/277.png"),
+        faceforensics.parse_path("original_sequences/youtube/c23/videos/071.mp4"),
+    ]
+
+    assert {pair_key(_sample(make_sample, item)) for item in items} == {"ffpp/071"}
+
+
+def test_df40_unknown_images_keep_their_own_pair_key(make_sample):
+    from face_decision_lab.sources import df40
+
+    item = df40.parse_unknown_member("MidJourney", "MidJourney/real/11180.jpg")
+
+    assert pair_key(_sample(make_sample, item)) == item.video_id

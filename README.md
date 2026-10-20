@@ -47,6 +47,7 @@ Research only. The plan and its pass criteria are in
 | `notebooks/score_diffusion_benchmarks.ipynb` | Scores the photo detectors, GenD and their fusions on DiFF or DiffusionFace, with the AUC of each subset |
 | `notebooks/diagnose_bona_fide_scores.ipynb` | Scores real crops from every source at native and lowered resolution, to tell whether low resolution or CelebA-HQ itself makes the detectors flag DiffusionFace reals |
 | `notebooks/build_superresolved.ipynb` | Builds super-resolved copies of the training-side real crops (Real-ESRGAN, Swin2SR) for `lab_ffpp_real_sr` |
+| `notebooks/build_df40.ipynb` | Crops DF40's known methods (FF++ domain) and unknown methods into a private dataset |
 | `notebooks/train_decision_model.ipynb` | Trains, calibrates and evaluates on Colab |
 
 ## Running

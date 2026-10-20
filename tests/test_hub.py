@@ -60,3 +60,9 @@ def test_dataset_card_has_a_license_row_for_super_resolved_reals(make_sample):
     card = dataset_card([make_sample(source="superresolved", generator="sr_realesrgan_x4plus")], {})
 
     assert "Real-ESRGAN or Swin2SR" in card
+
+
+def test_dataset_card_has_a_license_row_for_df40(make_sample):
+    card = dataset_card([make_sample(source="df40", generator="df40_simswap")], {})
+
+    assert "CC BY-NC 4.0" in card and "DF40" in card

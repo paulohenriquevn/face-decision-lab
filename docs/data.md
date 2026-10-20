@@ -141,6 +141,40 @@ after the access form and lives in a Colab secret, never in this repository.
 Unofficial copies of FaceForensics++, Celeb-DF and CelebA-Spoof on the Hub are left out: they skip
 the access agreements of the original authors.
 
+## DF40
+
+`notebooks/build_df40.ipynb` crops DF40 (Yan et al., arXiv 2406.13495; CC BY-NC 4.0, non-commercial research only, access form per researcher) into a private dataset with
+source_dataset `df40` and generator `df40_<method>` (`sources/df40.py`). The authors ship frames
+they already cropped; the build detects the face again and crops it at the lab's margin.
+
+| Part | Archive layout | Label | Subject | Kept |
+|---|---|---|---|---|
+| Known face swap and reenactment (21 methods) | `<method>/frames/<target>_<source>/<n>.png` | `face_swap` or `face_reenactment` | `ffpp_<target>` | FF++ train and val sequences, one frame in 16 |
+| Known entire-face synthesis (10 methods) | `<method>/<sequence>/<name>.png` | `fully_synthetic` | `ffpp_<sequence>` | same |
+| FF++ real frames | `FaceForensics++/original_sequences/youtube/c23/frames/<sequence>/<n>.png` | `bona_fide`, generator `df40_ffpp_real` | `ffpp_<sequence>` | all |
+| Unknown methods (9) | `<method>/{fake,real}/...` | the method's attack type; its reals `bona_fide`, generator `df40_<method>_real` | one per image or clip | all, e4e only for FF++ test sequences |
+
+What the authors' files hold differs from what their email says:
+
+- The folder the email calls "testing data" holds the FF++-domain training frames (for example
+  the pair 402_453, which the authors' JSON lists as training); the folder it calls "training
+  data" holds the FF++-domain test frames, the Celeb-DF domain and the unknown methods.
+- The link to the Celeb-DF real frames points to a script, so the Celeb-DF domain is left out. It
+  would also put Celeb-DF identities into training, and Celeb-DF is the lab's video benchmark.
+- MidJourney ships 247 of its 882 fakes as GIF, which OpenCV cannot decode; they are skipped.
+- One training archive (ddim in the "training data" folder) is not a valid zip; the build only
+  uses that folder for the unknown methods.
+
+Face editing (e4e, StarGAN, StarGAN v2, StyleCLIP, CollabDiff) maps to `face_reenactment`, as
+DiFF's FE subset does. The unknown methods' reals differ from their fakes in size and format
+(MidJourney: 1024 px PNG fakes, 256 px JPEG reals); the lab's crop resizes both to 256 px JPEG, but
+the detail lost or kept in that resize still differs, so their AUCs carry that difference, as the
+published ones do.
+
+`df40_ff` trains on the known methods (training sequences; validation sequences calibrate) and
+tests on the unknown methods; `auc_within_groups` with `df40.unknown_group` scores each against
+its own reals. `lab_df40` adds the same DF40 sides to `lab_ffpp_real`.
+
 ## Super-resolved real crops
 
 `notebooks/build_superresolved.ipynb` takes every real crop on the training side of
@@ -162,7 +196,6 @@ before downloading. None of them may train a commercial model.
 
 | Dataset | Attacks it covers | Label mapping |
 |---|---|---|
-| DF40 | 40 forgery methods | per method; check the dataset's method list |
 | OULU-NPU | print, replay | access type 1 → `bona_fide`; 2 and 3 → `print`; 4 and 5 → `replay` |
 | CelebA-Spoof | print, replay, mask | photo, poster, A4 → `print`; PC, pad, phone → `replay`; masks → `mask` |
 
