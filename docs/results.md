@@ -683,3 +683,60 @@ highest-scored real photos set the threshold at these points, and every detector
 most fakes below it, AUC of 0.95 notwithstanding. DiffusionFace's 1,490 reals allow 7 errors at
 0.5% and 1.5 at 0.1%, so its column is little more than noise. Experiments from here on report
 detection at BPCER 0.1%, 0.2% and 0.5%, with the threshold fixed on a calibration side.
+
+## 2026-10-20: published checkpoints on the lab's DiFF crops
+
+`score_diffusion_benchmarks.ipynb` at commit f4b165b scored the released checkpoints behind Table V
+of arXiv 2510.10663 (`Wolowolo/fsfm-3c`, CC BY-NC 4.0, all fine-tuned on FF++ DeepFakes c23) on the
+same 80,081 DiFF crops as every lab detector, reframed to 1.3x as FSFM crops them. timm's ViT with
+average pooling and `fc_norm` loads their weights with strict keys and gives outputs identical to
+FSFM's `models_vit` (maximum difference 0.0 on random input). The section before last compared the
+lab's numbers with these models' published ones, on their own DLIB crops; this one removes that
+difference. AUC in percent, 95% interval over 300 resamples of whole subjects.
+
+| Detector | Training data | T2I | I2I | FS | FE | Mean [95% CI] | Published mean |
+|---|---|---|---|---|---|---|---|
+| FS-VFM ViT-L/16 | FF++ DeepFakes c23 | 93.98 | 94.04 | 97.45 | 94.69 | 95.04 [94.80, 95.28] | 93.81 |
+| FS-VFM ViT-B/16 | FF++ DeepFakes c23 | 92.76 | 93.53 | 93.34 | 93.66 | 93.33 [92.89, 93.69] | 88.95 |
+| FSFM ViT-B/16 | FF++ DeepFakes c23 | 88.49 | 90.02 | 91.96 | 91.43 | 90.48 [89.88, 90.99] | 86.92 |
+| Lab recipe, `ffpp_deepfakes_to_diff` | FF++ DeepFakes c23 | 91.78 | 90.24 | 98.10 | 93.70 | 93.46 [93.14, 93.75] | |
+| GenD PE | FF++ c23, four methods | 96.90 | 95.48 | 98.69 | 91.08 | 95.54 [95.30, 95.80] | |
+| v2 | DeepFakeFace, AxonData, FF++ originals | 93.67 | 92.02 | 99.06 | 97.83 | 95.65 [95.44, 95.84] | |
+
+All three published models score higher on the lab's crops than in their paper. On the same crops
+and the same training data, the lab's recipe is 1.58 points below FS-VFM ViT-L (paired difference
+[-1.96, -1.25]): the earlier reading of 93.46 against 93.81 as a tie compared two preprocessings,
+and it was wrong. GenD PE is 0.50 above FS-VFM ViT-L ([+0.12, +0.85]) and v2 0.61 above
+([+0.37, +0.84]), on more training data than FF++ DeepFakes.
+
+Detection at a fixed BPCER, with the threshold set two ways: on the FF++ validation originals
+(2,200 crops; the BPCER it gives on DiFF's reals in parentheses), and on DiFF's own reals
+(optimistic, but the same for every detector):
+
+| Detector | FF++ threshold: 0.1% | 0.2% | 0.5% (DiFF BPCER) | DiFF threshold: 0.1% | 0.2% | 0.5% |
+|---|---|---|---|---|---|---|
+| FS-VFM ViT-L/16 | 49.7% | 60.6% | 79.3% (9.32%) | 25.6% | 27.7% | 30.2% |
+| FS-VFM ViT-B/16 | 53.6% | 68.9% | 84.5% (11.41%) | 7.9% | 12.0% | 15.7% |
+| FSFM ViT-B/16 | 21.0% | 24.8% | 36.0% (3.34%) | 6.3% | 9.3% | 15.3% |
+| Lab recipe, `ffpp_deepfakes_to_diff` | 2.4% | 7.9% | 12.8% (0.38%) | 4.0% | 8.2% | 15.0% |
+| GenD PE | 3.4% | 6.8% | 13.1% (0.13%) | 11.4% | 15.1% | 22.1% |
+| v2 | 75.6% | 82.7% | 96.5% (17.36%) | 7.2% | 12.0% | 21.1% |
+
+A threshold from FF++ video frames holds on DiFF's photos for the lab recipe and GenD PE, and not
+for FS-VFM or v2, which flag 9% to 17% of DiFF's reals at a threshold meant for 0.5%; their high
+detection in that column is bought with that BPCER. With the threshold on DiFF's reals, FS-VFM
+ViT-L detects the most fakes at 0.1%, 25.6% against GenD PE's 11.4%.
+
+Score fusions, each detector's logit standardized on the FF++ validation originals and averaged.
+Four pairs were tried on this test side, so the best of them is chosen on it:
+
+| Fusion | T2I | I2I | FS | FE | Mean [95% CI] | DiFF threshold: 0.1% | 0.2% | 0.5% |
+|---|---|---|---|---|---|---|---|---|
+| FS-VFM ViT-L + GenD PE | 98.25 | 97.87 | 99.35 | 96.62 | 98.03 [97.91, 98.15] | 30.5% | 35.3% | 47.6% |
+| FS-VFM ViT-L + GenD PE + v2 | 96.30 | 95.09 | 99.75 | 98.53 | 97.42 [97.28, 97.53] | 32.1% | 38.1% | 46.0% |
+| FS-VFM ViT-L + v2 | 94.84 | 93.70 | 99.27 | 97.85 | 96.41 [96.21, 96.58] | 24.3% | 25.7% | 29.0% |
+| FS-VFM ViT-L + lab recipe | 94.87 | 94.38 | 99.17 | 96.77 | 96.30 [96.11, 96.50] | 28.4% | 32.0% | 39.4% |
+
+FS-VFM ViT-L and GenD PE, both trained on FF++ c23 alone, reach a four-subset mean of 98.03, about
+three points above either one; their thresholds from FF++ give a DiFF BPCER of 2.5% to 4.2%, so the
+fusion still needs calibration on photos. Neither model was scored on Celeb-DF here.
