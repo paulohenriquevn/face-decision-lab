@@ -457,3 +457,25 @@ themselves are mostly caught. But a real photo that went through a generative ne
 super-resolution or a phone's enhancement, looks fake to v2, and DiffusionFace's AUC measures
 exactly that. Our hypothesis, still to test, is that the fix lies in training data (real photos
 processed by such networks, labeled real) and not in fusion.
+
+## 2026-10-19: super-resolved reals as bona fide (experiment 2d) fail
+
+`clip_layernorm_detector.ipynb` at commit 7d4136a trained v2's recipe under `lab_ffpp_real_sr`:
+`lab_ffpp_real`'s training side plus 30,308 super-resolved copies of its real crops, labeled bona
+fide (`build_superresolved.ipynb`; Real-ESRGAN x4plus and Swin2SR, half each). Same seed and
+settings as v2; one run.
+
+| Test side | v2 | v2 + super-resolved reals |
+|---|---|---|
+| subject_holdout AUC / BPCER at APCER ≤ 5% | 0.9987 / 1.9% | 0.9985 / 3.2% |
+| Celeb-DF frame / video AUC | 0.582 / 0.649 | 0.504 / 0.528 |
+| FF++ test frame / video AUC | 0.673 / 0.713 | 0.609 / 0.633 |
+| DiffusionFace AUC / BPCER at APCER ≤ 5% | 0.731 / 78.7% | 0.605 / 90.9% |
+
+Criterion (a) fails: DiffusionFace BPCER rose instead of falling to 39% or below, and so does
+(c). The copies did lower the score of DiffusionFace's real photos (mean 0.827 for v2, 0.626
+now), but they lowered the fakes' scores more: LDM fell to an AUC of 0.302 and ADM to 0.495.
+Our reading is that the fine detail a super-resolution network draws is the same cue v2 used to
+catch diffusion faces, so teaching it that this detail is real removed the cue on both sides.
+Fixing DiffusionFace's reals through augmentation alone does not work; the next step is training
+on many more generators (DF40).
