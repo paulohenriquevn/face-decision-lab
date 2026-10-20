@@ -43,7 +43,14 @@ def test_frames_of_one_fake_video_share_a_video_id():
 
 
 @pytest.mark.parametrize(
-    "name", ["simswap/landmarks/402_453/326.npy", "simswap/frames/402_453/", "simswap/.DS_Store"]
+    "name",
+    [
+        "simswap/landmarks/402_453/326.npy",
+        "simswap/frames/402_453/",
+        "simswap/.DS_Store",
+        # Leftover copies of clips the sadtalker archive also holds under their own name.
+        "simswap/frames/temp_000##CfmNXPMjChs_50010/034.png",
+    ],
 )
 def test_landmarks_directories_and_metadata_are_skipped(name):
     assert df40.parse_train_member("simswap", name) is None

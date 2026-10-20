@@ -85,6 +85,8 @@ def _skipped(name: str) -> bool:
         or parts[0] == "__MACOSX"
         or parts[-1].startswith(".")
         or "landmarks" in parts
+        # sadtalker keeps leftover copies of a few clips in temp_<clip> next to <clip>.
+        or any(part.startswith("temp_") for part in parts)
         # MidJourney ships 247 of its fakes as GIF, which OpenCV cannot decode.
         or not name.lower().endswith(IMAGE_EXTENSIONS)
     )
