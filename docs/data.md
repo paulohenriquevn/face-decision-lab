@@ -93,8 +93,12 @@ editing class, so FE maps to `face_reenactment`, the class for a real face chang
 attributes. The LoRA zip carries macOS resource forks, which the adapter skips.
 
 The pristine images, the bona fide side, come only through the authors' access form, for academic
-research and without redistribution. Their layout is not in the adapter yet; it fails on the first
-pristine member until it is.
+research and without redistribution; the Drive id from their email lives in the Colab secret
+`DIFF_PRISTINE_ID`. The archive holds `DiFF_real/{train,val,test}`; in October 2026 its test folder
+held 23,731 images, which `diff.parse_pristine_member` maps to generator `diff_real`, each image its
+own subject, since the archive names no identity. The train and val folders are skipped. The
+pristine crops go to their own private dataset (`face-decision-diff-pristine-test`), and
+`score_diffusion_benchmarks.ipynb` loads it next to the attack side.
 
 ## Unseen test set: DiffusionFace
 

@@ -75,3 +75,25 @@ def parse_member(name: str) -> SourceItem | None:
         source_dataset=SOURCE_DATASET,
         generator=generator_name(method),
     )
+
+
+_PRISTINE_TEST = re.compile(r"DiFF_real/test/(?P<number>\d+)\.png")
+
+
+def parse_pristine_member(name: str) -> SourceItem | None:
+    """Maps a member of the pristine archive the authors grant per researcher: DiFF_real/test/<n>.png
+    holds the pristine test images; the train and val folders are skipped, as the lab never trains on
+    DiFF. The archive names no identity, so every image is its own subject."""
+    if name.endswith("/") or name.startswith(("DiFF_real/train/", "DiFF_real/val/")):
+        return None
+    match = _PRISTINE_TEST.fullmatch(name)
+    if match is None:
+        raise SourceLayoutError(f"unexpected DiFF pristine member {name!r}")
+    return SourceItem(
+        path=name,
+        attack_type="bona_fide",
+        subject_id=f"{SOURCE_DATASET}_real_{match['number']}",
+        video_id=f"{SOURCE_DATASET}/real/{match['number']}",
+        source_dataset=SOURCE_DATASET,
+        generator=f"{SOURCE_DATASET}_real",
+    )

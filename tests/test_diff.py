@@ -81,3 +81,24 @@ def test_member_outside_an_identity_folder_is_rejected():
 def test_non_image_member_is_rejected():
     with pytest.raises(SourceLayoutError, match="not an image"):
         diff.parse_member("Midjourney/id_2160/prompts.txt")
+
+
+def test_pristine_test_images_are_bona_fide_and_each_its_own_subject():
+    item = diff.parse_pristine_member("DiFF_real/test/00061.png")
+
+    assert (item.attack_type, item.generator, item.source_dataset) == ("bona_fide", "diff_real", "diff")
+    assert item.subject_id == "diff_real_00061"
+    assert item.video_id == "diff/real/00061"
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["DiFF_real/train/real/00061.png", "DiFF_real/val/real/00061.png", "DiFF_real/test/", "DiFF_real/"],
+)
+def test_pristine_training_and_validation_images_and_directories_are_skipped(name):
+    assert diff.parse_pristine_member(name) is None
+
+
+def test_an_unexpected_pristine_member_is_rejected():
+    with pytest.raises(SourceLayoutError, match="unexpected DiFF pristine member 'DiFF_real/extra/1.png'"):
+        diff.parse_pristine_member("DiFF_real/extra/1.png")
