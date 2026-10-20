@@ -24,7 +24,7 @@
 - `bootstrap_interval` for confidence intervals that resample whole subjects, and `score_files` to save every crop's detector scores
 - Detection at a fixed BPCER (`threshold_at_bpcer`, `detection_at_bpcer`): thresholds set on the calibration side's bona fide crops at BPCER 0.1%, 0.2% and 0.5%, detection read on the test side
 - The CLIP detector notebook scores the calibration side, saves every crop's score per side, reports detection at a fixed BPCER, and takes a seed and a rescore option
-- Scoring of the published FSFM and FS-VFM checkpoints fine-tuned on FF++ DeepFakes c23 and of the lab's `ffpp_deepfakes_to_diff` run on DiFF, with detection at a fixed BPCER from the FF++ validation originals
+- Scoring of the published FSFM and FS-VFM checkpoints fine-tuned on FF++ DeepFakes c23 and of the lab's `ffpp_deepfakes_to_diff` run on DiFF, Celeb-DF and the FF++ test split, with detection at a fixed BPCER from the FF++ validation originals
 - Face alignment on 5 landmarks with GenD's reference points (`aligned_crop`), selectable per build, and landmarks kept on detected boxes
 - `tighten_crop` to reframe a built crop to the face margin a pretrained detector expects
 - `lower_resolution` to show a crop as it would look had the face been smaller in the source
