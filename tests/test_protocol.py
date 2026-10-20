@@ -584,3 +584,23 @@ def test_bootstrap_interval_rejects_a_level_outside_zero_and_one(make_sample):
 
     with pytest.raises(ValueError, match="level must be between 0 and 1, got 1.5"):
         bootstrap_interval(samples, scores, lambda part, values: 0.0, level=1.5)
+
+
+def test_ffpp_deepfakes_to_diff_trains_on_ffpp_deepfakes_and_tests_on_diff(make_sample):
+    from face_decision_lab.sources import faceforensics
+
+    diff = _diff(make_sample, 40)
+
+    train, calibration, test = protocol_split(_ffpp(make_sample) + diff, "ffpp_deepfakes_to_diff")
+
+    assert {s.generator for s in train} == {"ffpp_original", "ffpp_deepfakes"}
+    assert {s.generator for s in calibration} == {"ffpp_original", "ffpp_deepfakes"}
+    assert {faceforensics.official_split(s) for s in train} == {"train"}
+    assert {faceforensics.official_split(s) for s in calibration} == {"val"}
+    assert test == diff
+
+
+def test_ffpp_deepfakes_to_diff_loads_faceforensics_and_diff():
+    from face_decision_lab.protocol import external_datasets
+
+    assert external_datasets("ffpp_deepfakes_to_diff") == {"faceforensics", "diff"}

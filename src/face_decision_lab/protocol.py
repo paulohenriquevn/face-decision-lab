@@ -43,10 +43,13 @@ CROSS_DATASET_PROTOCOLS = {
 # test on Celeb-DF, the standard cross-dataset benchmark, after training on FaceForensics++ alone or
 # together with the lab data. Only the four methods of the original paper enter, as in the
 # literature these numbers are compared with; FaceShifter is left out.
-FFPP_PROTOCOLS = ("ffpp", "ffpp_to_celebdf", "lab_ffpp_to_celebdf", "lab_ffpp_real")
+FFPP_PROTOCOLS = ("ffpp", "ffpp_to_celebdf", "lab_ffpp_to_celebdf", "lab_ffpp_real", "ffpp_deepfakes_to_diff")
 FFPP_GENERATORS = frozenset(
     {"ffpp_original", "ffpp_deepfakes", "ffpp_faceswap", "ffpp_face2face", "ffpp_neuraltextures"}
 )
+
+# "ffpp_deepfakes_to_diff" is the cross-dataset DiFF protocol of FSFM and FS-VFM: training on the
+# FF++ originals and DeepFakes alone, testing on every DiFF crop.
 
 # "lab_ffpp_real" adds only the FF++ originals to the lab's subject_holdout sides, as more bona fide
 # video, and tests on the subject_holdout test side: a photo detector that must stop flagging real
@@ -80,6 +83,8 @@ def external_datasets(protocol: str) -> frozenset[str]:
         return frozenset({"faceforensics", "df40"})
     if protocol in ("ffpp", "lab_ffpp_real"):
         return frozenset({"faceforensics"})
+    if protocol == "ffpp_deepfakes_to_diff":
+        return frozenset({"faceforensics", "diff"})
     if protocol in FFPP_PROTOCOLS:
         return frozenset({"faceforensics", "celebdf"})
     return frozenset()
@@ -135,6 +140,10 @@ def _ffpp_split(
     sides = {name: [s for s in ffpp if official_split(s) == name] for name in ("train", "val", "test")}
     if protocol == "ffpp":
         return sides["train"], sides["val"], sides["test"]
+    if protocol == "ffpp_deepfakes_to_diff":
+        kept = {"ffpp_original", "ffpp_deepfakes"}
+        train, calibration = ([s for s in sides[name] if s.generator in kept] for name in ("train", "val"))
+        return train, calibration, _from(samples, "diff")
     if protocol == "lab_ffpp_real":
         lab_train, lab_calibration, lab_test = protocol_split(samples, "subject_holdout")
         originals = {name: [s for s in side if s.is_bona_fide] for name, side in sides.items()}
