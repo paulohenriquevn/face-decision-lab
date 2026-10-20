@@ -509,3 +509,82 @@ Our reading is that the fine detail a super-resolution network draws is the same
 catch diffusion faces, so teaching it that this detail is real removed the cue on both sides.
 Fixing DiffusionFace's reals through augmentation alone does not work; the next step is training
 on many more generators (DF40).
+
+## 2026-10-20: intervals and a paired comparison on DiFF
+
+`score_diffusion_benchmarks.ipynb` at commit 104be1e rescored DiFF's test split and saved every
+crop's score (`scores/cross_diff.npz` in the model repository); the analysis of
+`analyze_diffusion_benchmarks.ipynb` ran on those scores. The set is the one of the 2026-10-19
+section: DiFF's test split as released by the authors, received in October 2026, with the
+pristine archive the authors sent through their access form.
+
+| Subset | Methods (crops) | Crops |
+|---|---|---|
+| T2I | HPS 7,787, Midjourney 5,620, SDXL 5,450, FreeDoM-T 2,501 | 21,358 |
+| I2I | SDXL Refiner 5,578, DreamBooth 3,758, FreeDoM-I 2,257, LoRA 1,581 | 13,174 |
+| FS | DCFace 4,629, DiffFace 1,576 | 6,205 |
+| FE | Cycle Diffusion 7,282, Imagic 4,319, CoDiff 4,020 | 15,621 |
+| Pristine | | 23,723 |
+
+The pristine count is the 23,723 of 23,731 pristine test images in which RetinaFace found a face.
+An external review of these results cited 23,661 pristine test images for DiFF, from CrossDF; we
+have not checked that paper, so the counts here are ours. The archive itself repeats some images:
+459 of the 5,620 Midjourney crops are byte for byte the crop of another Midjourney file, the same
+picture filed under several identity folders, and 6 pristine crops repeat another. They are
+scored as the archive lists them.
+
+Intervals are 95% percentile intervals from 1,000 bootstrap resamples of whole subjects
+(`bootstrap_interval`, seed 3407). The fakes come from 143 identities and are resampled by
+identity. DiFF gives no identity for the pristine images, so each counts as its own subject; if
+some show the same person, the intervals are narrower than they should be.
+
+BPCER at APCER ≤ 5% takes the threshold from the scored test crops themselves, at the APCER of
+the worst attack type. That is the usual reporting point but an optimistic one: a threshold fixed
+beforehand on other data would give a higher BPCER.
+
+| Detector | AUC, all subsets pooled | BPCER at APCER ≤ 5% |
+|---|---|---|
+| GenD PE | 0.952 [0.949, 0.954] | 38.5% [35.3%, 41.4%] |
+| GenD ensemble | 0.940 [0.937, 0.944] | 43.8% [40.7%, 47.3%] |
+| v2 | 0.950 [0.948, 0.953] | 18.0% [17.2%, 18.6%] |
+| Max, v2 + ensemble | 0.949 [0.946, 0.951] | 17.5% [16.8%, 18.1%] |
+
+Paired difference, v2 minus GenD PE, from the same resamples:
+
+| Metric | Difference | 95% interval |
+|---|---|---|
+| AUC | -0.001 | [-0.005, +0.003] |
+| BPCER at APCER ≤ 5% | -20.5 points | [-23.5, -17.4] |
+
+v2 and GenD PE cannot be told apart by AUC on DiFF; the interval of the difference holds zero.
+At the APCER 5% point v2 flags about 20 points fewer real photos, and that difference holds
+across the resamples. Neither number makes either detector state of the art on DiFF: we have no
+published result on the same split, pristine set and protocol to compare with, and v2 trained on
+Stable Diffusion faces while the published DiFF baselines did not.
+
+## 2026-10-20: real photos swapped between DiFF and DiffusionFace
+
+Each benchmark's fakes were scored against its own real photos and against the other's, with the
+scores of the section above and `scores/cross_diffusionface.npz`; the fakes stay fixed. AUC with a
+95% interval over whole subjects, 1,000 resamples. DiffusionFace's 1,490 reals are CelebA-HQ
+photos, one subject each; a fake made from a real photo shares its subject, and the sample has
+1,575 subjects in all.
+
+| Fakes | Reals | GenD PE | GenD ensemble | v2 | Max, v2 + ensemble |
+|---|---|---|---|---|---|
+| DiFF | DiFF | 0.952 [0.949, 0.954] | 0.940 [0.937, 0.944] | 0.950 [0.948, 0.953] | 0.949 [0.946, 0.951] |
+| DiFF | DiffusionFace | 0.746 [0.732, 0.760] | 0.780 [0.766, 0.793] | 0.630 [0.614, 0.646] | 0.644 [0.627, 0.659] |
+| DiffusionFace | DiFF | 0.936 [0.933, 0.938] | 0.913 [0.910, 0.916] | 0.968 [0.966, 0.969] | 0.965 [0.963, 0.967] |
+| DiffusionFace | DiffusionFace | 0.690 [0.681, 0.700] | 0.725 [0.715, 0.734] | 0.731 [0.721, 0.743] | 0.737 [0.726, 0.748] |
+
+The real side decides the result. DiFF's fakes drop from 0.950 to 0.630 for v2 once they are set
+against DiffusionFace's real photos, and DiffusionFace's fakes rise from 0.731 to 0.968 against
+DiFF's. Every detector moves the same way, and no interval of a swapped pair overlaps the
+unswapped one. This agrees with the diagnosis of 2026-10-19: what the detectors flag in
+DiffusionFace is its real photos. The swap also changes resolution and framing along with the
+source, so it attributes the drop to DiffusionFace's real photos as a whole; the earlier
+resolution test is what points at the detail CelebA-HQ's processing added.
+
+DiffusionFace's low AUC therefore does not show that these detectors miss its fakes: against
+ordinary real photos they separate them about as well as DiFF's. It shows that they flag
+CelebA-HQ photos as fake, which matters for any input that went through a similar enhancement.
