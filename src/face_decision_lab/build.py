@@ -5,9 +5,14 @@ The build is resumable. Every source file that was handled, whatever its outcome
 rebuilt from it, so a Colab session that dies halfway restarts where it stopped and loses nothing.
 """
 
+import io
 import json
 import tarfile
+import time
+import urllib.error
+import urllib.request
 import zipfile
+import zlib
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -164,6 +169,119 @@ def zip_members(path: Path, parse: Callable[[str], SourceItem | None]) -> Iterat
             item = parse(name)
             if item is not None:
                 yield item, archive.read(name)
+
+
+class RangeReader(io.RawIOBase):
+    """A read-only, seekable file over fetch(start, end), which returns bytes start to end inclusive,
+    so zipfile can read single members of a remote archive. Reads go in blocks of at least block
+    bytes, each fetched once."""
+
+    def __init__(self, fetch: Callable[[int, int], bytes], size: int, block: int = 1 << 20):
+        self._fetch, self.size, self.block, self._position = fetch, size, block, 0
+
+    def fetch(self, start: int, end: int) -> bytes:
+        """Bytes start to end inclusive, read directly, outside the file position."""
+        data = self._fetch(start, end)
+        if len(data) != end - start + 1:
+            raise OSError(f"asked for bytes {start}-{end} of {self.size}, got {len(data)}")
+        return data
+
+    def readable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def tell(self) -> int:
+        return self._position
+
+    def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
+        base = {io.SEEK_SET: 0, io.SEEK_CUR: self._position, io.SEEK_END: self.size}[whence]
+        self._position = base + offset
+        return self._position
+
+    def readinto(self, buffer) -> int:
+        count = min(max(len(buffer), self.block), self.size - self._position)
+        if count <= 0:
+            return 0
+        start, end = self._position, self._position + count - 1
+        data = self.fetch(start, end)
+        taken = min(len(buffer), count)
+        buffer[:taken] = data[:taken]
+        self._position += taken
+        return taken
+
+
+def http_range_reader(url: str, attempts: int = 5, urlopen=urllib.request.urlopen) -> RangeReader:
+    """A RangeReader over an HTTP URL that answers byte ranges. Google Drive keeps answering ranges
+    of a file after it refuses whole downloads of it for the day ("Quota exceeded")."""
+
+    def get(start: int, end: int):
+        request = urllib.request.Request(url, headers={"Range": f"bytes={start}-{end}"})
+        for attempt in range(attempts):
+            try:
+                with urlopen(request, timeout=120) as response:
+                    if response.status != 206:
+                        kind = response.headers.get("Content-Type", "unknown type")
+                        raise OSError(f"{url} did not answer a byte range (status {response.status}, {kind})")
+                    return response.headers["Content-Range"], response.read()
+            except (TimeoutError, ConnectionError, urllib.error.URLError):
+                if attempt == attempts - 1:
+                    raise
+                time.sleep(2**attempt)
+        raise AssertionError("unreachable")
+
+    content_range, _ = get(0, 0)
+    return RangeReader(lambda start, end: get(start, end)[1], int(content_range.rsplit("/", 1)[1]))
+
+
+def remote_zip_members(
+    reader: RangeReader,
+    parse: Callable[[str], SourceItem | None],
+    keep: Callable[[SourceItem], bool] = lambda item: True,
+    workers: int = 16,
+) -> Iterator[tuple[SourceItem, bytes]]:
+    """Reads the kept members of a zip archive behind reader, in archive order, fetching only the
+    central directory and those members, each with one ranged request on a thread pool, so a sample
+    of a large remote archive is built without downloading it."""
+    with zipfile.ZipFile(io.BufferedReader(reader, buffer_size=reader.block)) as archive:
+        chosen = [
+            (item, info)
+            for info in archive.infolist()
+            if (item := parse(info.filename)) is not None and keep(item)
+        ]
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for (item, _), data in zip(
+            chosen, pool.map(lambda pair: _member(reader, pair[1]), chosen), strict=True
+        ):
+            yield item, data
+
+
+# A local file header is 30 bytes, then the name and an extra field whose length can differ from
+# the central directory's copy; this much slack covers it in the same request.
+_LOCAL_HEADER_SLACK = 1024
+
+
+def _member(reader: RangeReader, info: zipfile.ZipInfo) -> bytes:
+    start = info.header_offset
+    end = min(
+        reader.size, start + 30 + len(info.orig_filename.encode()) + _LOCAL_HEADER_SLACK + info.compress_size
+    )
+    chunk = reader.fetch(start, end - 1)
+    if chunk[:4] != b"PK\x03\x04":
+        raise zipfile.BadZipFile(f"no local file header for {info.filename!r} at offset {start}")
+    name_length, extra_length = int.from_bytes(chunk[26:28], "little"), int.from_bytes(chunk[28:30], "little")
+    data_start = 30 + name_length + extra_length
+    raw = chunk[data_start : data_start + info.compress_size]
+    if len(raw) < info.compress_size:
+        raw += reader.fetch(start + data_start + len(raw), start + data_start + info.compress_size - 1)
+    if info.compress_type == zipfile.ZIP_STORED:
+        return raw
+    if info.compress_type == zipfile.ZIP_DEFLATED:
+        return zlib.decompress(raw, -15)
+    raise zipfile.BadZipFile(
+        f"{info.filename!r} uses compression {info.compress_type}, not stored or deflate"
+    )
 
 
 def tar_members(

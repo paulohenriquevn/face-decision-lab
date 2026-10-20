@@ -160,3 +160,105 @@ def test_tar_members_reads_a_stream_once_and_keeps_only_the_chosen_members():
     pairs = list(tar_members(stream, diffusionface.parse_member, keep=lambda name: name != "Real/2.png"))
 
     assert [(item.path, data) for item, data in pairs] == [("Real/1.png", b"one"), ("Real/3.png", b"three")]
+
+
+def _zip_bytes(members):
+    import io
+    import zipfile
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, data in members.items():
+            archive.writestr(name, data)
+    return buffer.getvalue()
+
+
+def test_remote_zip_members_reads_only_the_kept_members_of_a_ranged_archive():
+    from face_decision_lab.build import RangeReader, remote_zip_members
+    from face_decision_lab.sources import diffusionface
+
+    data = _zip_bytes({f"Real/{n}.png": bytes([n]) * 100_000 for n in range(20)})
+    fetched = []
+
+    def fetch(start, end):
+        fetched.append(end - start + 1)
+        return data[start : end + 1]
+
+    reader = RangeReader(fetch, len(data), block=16_384)
+
+    pairs = list(
+        remote_zip_members(reader, diffusionface.parse_member, keep=lambda item: item.path == "Real/3.png")
+    )
+
+    assert [(item.path, payload) for item, payload in pairs] == [("Real/3.png", bytes([3]) * 100_000)]
+    assert sum(fetched) < len(data) / 4
+
+
+def test_range_reader_rejects_a_short_answer():
+    from face_decision_lab.build import RangeReader
+
+    reader = RangeReader(lambda start, end: b"x", 100, block=10)
+
+    with pytest.raises(OSError, match="asked for bytes 0-9 of 100, got 1"):
+        reader.read(10)
+
+
+class _Response:
+    def __init__(self, status, headers, body):
+        self.status, self.headers, self._body = status, headers, body
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_http_range_reader_learns_the_size_from_content_range():
+    from face_decision_lab.build import http_range_reader
+
+    def urlopen(request, timeout):
+        start, end = map(int, request.headers["Range"].removeprefix("bytes=").split("-"))
+        return _Response(206, {"Content-Range": f"bytes {start}-{end}/1000"}, b"a" * (end - start + 1))
+
+    reader = http_range_reader("https://example.org/a.zip", urlopen=urlopen)
+
+    assert reader.size == 1000
+    assert reader.read(5) == b"aaaaa"
+
+
+def test_http_range_reader_fails_loudly_on_a_page_instead_of_bytes():
+    from face_decision_lab.build import http_range_reader
+
+    def urlopen(request, timeout):
+        return _Response(200, {"Content-Type": "text/html"}, b"<title>Google Drive - Quota exceeded</title>")
+
+    with pytest.raises(
+        OSError, match="https://example.org/a.zip did not answer a byte range .status 200, text/html"
+    ):
+        http_range_reader("https://example.org/a.zip", urlopen=urlopen)
+
+
+def test_remote_zip_members_reads_stored_and_deflated_members_in_parallel():
+    import io
+    import zipfile
+
+    from face_decision_lab.build import RangeReader, remote_zip_members
+    from face_decision_lab.sources import diffusionface
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for n in range(30):
+            method = zipfile.ZIP_DEFLATED if n % 2 else zipfile.ZIP_STORED
+            archive.writestr(f"Real/{n}.png", bytes([n]) * 5000, compress_type=method)
+    data = buffer.getvalue()
+    reader = RangeReader(lambda start, end: data[start : end + 1], len(data), block=4096)
+
+    pairs = list(remote_zip_members(reader, diffusionface.parse_member, workers=8))
+
+    assert [(item.path, payload) for item, payload in pairs] == [
+        (f"Real/{n}.png", bytes([n]) * 5000) for n in range(30)
+    ]
