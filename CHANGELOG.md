@@ -19,6 +19,7 @@
 - `lab_ffpp_real_sr` protocol and the `superresolved` source: copies of the training-side real crops enlarged by a super-resolution network, labeled bona fide
 - DF40 adapter for the FF++-domain frames of its 31 known methods and its 9 unknown methods, the `df40_ff` and `lab_df40` protocols, and `auc_within_groups` to score each method against its own reals
 - `http_range_reader` and `remote_zip_members` to crop a sample of a remote zip archive from HTTP byte ranges, without downloading it
+- `bootstrap_interval` for confidence intervals that resample whole subjects, and `score_files` to save every crop's detector scores
 - Face alignment on 5 landmarks with GenD's reference points (`aligned_crop`), selectable per build, and landmarks kept on detected boxes
 - `tighten_crop` to reframe a built crop to the face margin a pretrained detector expects
 - `lower_resolution` to show a crop as it would look had the face been smaller in the source

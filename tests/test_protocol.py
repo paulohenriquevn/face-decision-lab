@@ -523,3 +523,64 @@ def test_auc_within_groups_rejects_a_group_without_both_classes(make_sample):
 
     with pytest.raises(MetricInputError, match="group 'a' needs bona fide and attack samples"):
         auc_within_groups(samples, [0.5], lambda s: s.generator)
+
+
+def _separable(make_sample, subjects=40, per_subject=5, overlap=0.0):
+    rng = np.random.default_rng(0)
+    samples, scores = [], []
+    for subject in range(subjects):
+        real = subject % 2 == 0
+        for frame in range(per_subject):
+            samples.append(
+                make_sample(
+                    attack_type="bona_fide" if real else "face_swap",
+                    subject=f"s{subject}",
+                    video=f"v{subject}_{frame}",
+                    path=f"{subject}_{frame}.jpg",
+                )
+            )
+            scores.append(float(rng.normal(0.0 if real else 1.0 - overlap, 0.3)))
+    return samples, scores
+
+
+def test_bootstrap_interval_brackets_the_auc_and_is_reproducible(make_sample):
+    from face_decision_lab.metrics import auc
+    from face_decision_lab.protocol import bootstrap_interval
+
+    samples, scores = _separable(make_sample, overlap=0.7)
+
+    def statistic(part, values):
+        return auc(values, [s.attack_type for s in part])
+
+    low, high = bootstrap_interval(samples, scores, statistic, rounds=200)
+
+    assert low < statistic(samples, scores) < high
+    assert (low, high) == bootstrap_interval(samples, scores, statistic, rounds=200)
+
+
+def test_bootstrap_interval_resamples_whole_subjects(make_sample):
+    from face_decision_lab.protocol import bootstrap_interval
+
+    samples, scores = _separable(make_sample)
+    seen = []
+
+    def statistic(part, values):
+        by_subject = {}
+        for sample in part:
+            by_subject[sample.subject_id] = by_subject.get(sample.subject_id, 0) + 1
+        seen.append(set(by_subject.values()))
+        return 0.0
+
+    bootstrap_interval(samples, scores, statistic, rounds=20)
+
+    # Every subject has 5 crops, so a subject drawn k times contributes 5k of them.
+    assert all(count % 5 == 0 for counts in seen for count in counts)
+
+
+def test_bootstrap_interval_rejects_a_level_outside_zero_and_one(make_sample):
+    from face_decision_lab.protocol import bootstrap_interval
+
+    samples, scores = _separable(make_sample)
+
+    with pytest.raises(ValueError, match="level must be between 0 and 1, got 1.5"):
+        bootstrap_interval(samples, scores, lambda part, values: 0.0, level=1.5)

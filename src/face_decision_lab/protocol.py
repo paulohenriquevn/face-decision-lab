@@ -231,6 +231,36 @@ def auc_within_groups(
     return result
 
 
+def bootstrap_interval(
+    samples: list[FaceSample],
+    scores: list[float],
+    statistic: Callable[[list[FaceSample], list[float]], float],
+    rounds: int = 1000,
+    level: float = 0.95,
+    seed: int = SEED,
+) -> tuple[float, float]:
+    """Percentile interval of statistic(samples, scores) over bootstrap resamples of whole subjects.
+
+    Crops of one subject (a person, or one image when a dataset names no identity) are not
+    independent, so the resample draws subjects with replacement and keeps all their crops."""
+    if not 0 < level < 1:
+        raise ValueError(f"level must be between 0 and 1, got {level}")
+    import numpy as np
+
+    by_subject: dict[str, list[int]] = {}
+    for index, sample in enumerate(samples):
+        by_subject.setdefault(sample.subject_id, []).append(index)
+    groups = list(by_subject.values())
+    rng = np.random.default_rng(seed)
+    values = []
+    for _ in range(rounds):
+        chosen = [index for g in rng.integers(0, len(groups), len(groups)) for index in groups[g]]
+        values.append(statistic([samples[i] for i in chosen], [scores[i] for i in chosen]))
+    tail = (1 - level) / 2 * 100
+    low, high = np.percentile(values, [tail, 100 - tail])
+    return float(low), float(high)
+
+
 def evaluation_report(samples: list[FaceSample], scores: list[float]) -> dict:
     """Metrics for attack scores (probability of attack) on the given samples."""
     types = [sample.attack_type for sample in samples]
