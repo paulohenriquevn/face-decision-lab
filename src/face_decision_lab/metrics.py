@@ -87,3 +87,20 @@ def eer(scores, attack_types) -> float:
     false_negative = 1 - true_positive
     index = int(np.argmin(np.abs(false_negative - false_positive)))
     return float((false_negative[index] + false_positive[index]) / 2)
+
+
+def threshold_at_bpcer(bona_fide_scores, max_bpcer: float) -> float:
+    """The lowest threshold that flags at most max_bpcer of these bona fide scores as attacks.
+
+    Bank face checks fix BPCER first (at most 0.5%, usually 0.1% to 0.2%) and read detection there,
+    so the threshold comes from bona fide captures alone. Ties at the limit push it above them all."""
+    if not 0 < max_bpcer < 1:
+        raise MetricInputError(f"max_bpcer must be between 0 and 1, got {max_bpcer}")
+    scores = np.sort(np.asarray(bona_fide_scores, dtype=float))[::-1]
+    if not len(scores):
+        raise MetricInputError("need bona fide scores to set a threshold")
+    if not np.all(np.isfinite(scores)):
+        raise MetricInputError("scores contain NaN or infinity")
+    allowed = int(np.floor(max_bpcer * len(scores)))
+    # Only the `allowed` highest scores may reach the threshold, so it sits just above the next one.
+    return float(np.nextafter(scores[allowed], np.inf))

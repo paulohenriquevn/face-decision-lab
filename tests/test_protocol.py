@@ -604,3 +604,64 @@ def test_ffpp_deepfakes_to_diff_loads_faceforensics_and_diff():
     from face_decision_lab.protocol import external_datasets
 
     assert external_datasets("ffpp_deepfakes_to_diff") == {"faceforensics", "diff"}
+
+
+def _scored_side(make_sample, real_scores, attack_scores, prefix):
+    samples = [
+        make_sample(subject=f"{prefix}r{i}", video=f"{prefix}rv{i}", path=f"{prefix}r{i}.jpg")
+        for i in range(len(real_scores))
+    ]
+    samples += [
+        make_sample(
+            attack_type="face_swap",
+            subject=f"{prefix}a{i}",
+            video=f"{prefix}av{i}",
+            path=f"{prefix}a{i}.jpg",
+            generator="insight" if i % 2 else "text2img",
+        )
+        for i in range(len(attack_scores))
+    ]
+    return samples, list(real_scores) + list(attack_scores)
+
+
+def test_detection_at_bpcer_sets_the_threshold_on_calibration_and_reads_detection_on_test(make_sample):
+    from face_decision_lab.protocol import detection_at_bpcer
+
+    calibration, calibration_scores = _scored_side(make_sample, np.arange(1000) / 1000, [0.5], "c")
+    test, test_scores = _scored_side(make_sample, [0.1, 0.997], [0.2, 0.996, 0.999, 1.0], "t")
+
+    report = detection_at_bpcer(calibration, calibration_scores, test, test_scores, max_bpcers=(0.005,))
+
+    point = report["0.005"]
+    assert 0.994 < point["threshold"] <= 0.995
+    assert point["calibration_bpcer"] == 0.005
+    # The test's own reals are not used for the threshold: one of two is flagged.
+    assert point["test_bpcer"] == 0.5
+    assert point["detection"] == 0.75
+    assert point["detection_by_generator"] == {"insight": 1.0, "text2img": 0.5}
+
+
+def test_detection_at_bpcer_threshold_ignores_the_test_reals(make_sample):
+    from face_decision_lab.protocol import detection_at_bpcer
+
+    calibration, calibration_scores = _scored_side(make_sample, np.arange(1000) / 1000, [], "c")
+    test, test_scores = _scored_side(make_sample, [0.1, 0.2], [0.999], "t")
+    other_test, other_scores = _scored_side(make_sample, [0.99, 0.999], [0.999], "t")
+
+    limit = (0.002,)
+    first = detection_at_bpcer(calibration, calibration_scores, test, test_scores, max_bpcers=limit)
+    second = detection_at_bpcer(calibration, calibration_scores, other_test, other_scores, max_bpcers=limit)
+
+    assert first["0.002"]["threshold"] == second["0.002"]["threshold"]
+
+
+def test_detection_at_bpcer_needs_calibration_reals_and_test_attacks(make_sample):
+    from face_decision_lab.protocol import detection_at_bpcer
+
+    reals, real_scores = _scored_side(make_sample, [0.1, 0.2], [], "r")
+    attacks, attack_scores = _scored_side(make_sample, [], [0.9], "a")
+
+    with pytest.raises(MetricInputError):
+        detection_at_bpcer(attacks, attack_scores, attacks, attack_scores)
+    with pytest.raises(MetricInputError):
+        detection_at_bpcer(reals, real_scores, reals, real_scores)

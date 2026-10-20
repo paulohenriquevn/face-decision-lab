@@ -9,7 +9,7 @@ from collections.abc import Callable
 from .errors import MetricInputError
 from .labels import BONA_FIDE
 from .manifest import FaceSample
-from .metrics import auc, bpcer_at_apcer, eer, operating_point
+from .metrics import auc, bpcer_at_apcer, eer, operating_point, threshold_at_bpcer
 from .pairs import pair_key
 from .splits import capped, standard_split
 
@@ -18,6 +18,8 @@ TEST_FRACTION = 0.2
 CALIBRATION_FRACTION = 0.1
 MAX_TEST_SAMPLES = 4000
 MAX_APCER = 0.05
+# BPCER limits a bank's face check works at: at most 0.5%, usually 0.1% to 0.2%.
+BPCER_LIMITS = (0.001, 0.002, 0.005)
 
 
 # Protocols by name. "subject_holdout" tests new people on known generators. The "unseen_*" ones
@@ -293,3 +295,47 @@ def evaluation_report(samples: list[FaceSample], scores: list[float]) -> dict:
         "videos": len(per_video),
         "video_auc": auc(per_video, video_types),
     }
+
+
+def detection_at_bpcer(
+    calibration: list[FaceSample],
+    calibration_scores: list[float],
+    test: list[FaceSample],
+    test_scores: list[float],
+    max_bpcers: tuple[float, ...] = BPCER_LIMITS,
+) -> dict[str, dict]:
+    """Detection (1 - APCER over all attacks) on the test side at thresholds fixed on the
+    calibration side's bona fide crops, one entry per BPCER limit.
+
+    A threshold set on the test's own reals would be optimistic, so the test reals only report the
+    BPCER the fixed threshold actually gives there."""
+    calibration_pairs = list(zip(calibration, calibration_scores, strict=True))
+    test_pairs = list(zip(test, test_scores, strict=True))
+    calibration_reals = [score for s, score in calibration_pairs if s.is_bona_fide]
+    test_reals = [score for s, score in test_pairs if s.is_bona_fide]
+    attacks = [(s.generator, score) for s, score in test_pairs if not s.is_bona_fide]
+    if not calibration_reals:
+        raise MetricInputError("the calibration side has no bona fide crop to set a threshold on")
+    if not attacks:
+        raise MetricInputError("the test side has no attack to detect")
+    by_generator: dict[str, list[float]] = {}
+    for generator, score in attacks:
+        by_generator.setdefault(generator, []).append(score)
+
+    def share_at_or_above(values, threshold):
+        return sum(value >= threshold for value in values) / len(values)
+
+    report = {}
+    for max_bpcer in max_bpcers:
+        threshold = threshold_at_bpcer(calibration_reals, max_bpcer)
+        report[f"{max_bpcer:g}"] = {
+            "threshold": threshold,
+            "calibration_bpcer": share_at_or_above(calibration_reals, threshold),
+            "test_bpcer": share_at_or_above(test_reals, threshold) if test_reals else None,
+            "detection": share_at_or_above([score for _, score in attacks], threshold),
+            "detection_by_generator": {
+                generator: share_at_or_above(values, threshold)
+                for generator, values in sorted(by_generator.items())
+            },
+        }
+    return report

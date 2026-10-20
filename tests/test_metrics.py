@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from face_decision_lab.errors import MetricInputError
@@ -84,3 +85,49 @@ def test_metrics_reject_nan_scores():
 def test_metrics_reject_mismatched_lengths():
     with pytest.raises(MetricInputError, match="scores for"):
         auc([0.1, 0.2, 0.3], ["bona_fide", "print"])
+
+
+def test_threshold_at_bpcer_flags_at_most_the_allowed_share_of_bona_fide():
+    from face_decision_lab.metrics import threshold_at_bpcer
+
+    bona_fide = np.arange(1000) / 1000
+
+    threshold = threshold_at_bpcer(bona_fide, max_bpcer=0.005)
+
+    # Five of 1,000 may be flagged: 0.995 to 0.999.
+    assert np.sum(bona_fide >= threshold) == 5
+
+
+def test_threshold_at_bpcer_stays_above_ties_at_the_limit():
+    from face_decision_lab.metrics import threshold_at_bpcer
+
+    bona_fide = np.array([0.1] * 990 + [0.9] * 10)
+
+    threshold = threshold_at_bpcer(bona_fide, max_bpcer=0.005)
+
+    # Any threshold at or below 0.9 flags all ten, past the five allowed.
+    assert threshold > 0.9
+    assert np.sum(bona_fide >= threshold) == 0
+
+
+def test_threshold_at_bpcer_flags_none_when_the_limit_allows_less_than_one():
+    from face_decision_lab.metrics import threshold_at_bpcer
+
+    bona_fide = np.linspace(0, 1, 100)
+
+    assert np.sum(bona_fide >= threshold_at_bpcer(bona_fide, max_bpcer=0.001)) == 0
+
+
+@pytest.mark.parametrize("max_bpcer", [0.0, 1.0, -0.1])
+def test_threshold_at_bpcer_rejects_a_limit_outside_zero_and_one(max_bpcer):
+    from face_decision_lab.metrics import threshold_at_bpcer
+
+    with pytest.raises(MetricInputError):
+        threshold_at_bpcer([0.1, 0.2], max_bpcer=max_bpcer)
+
+
+def test_threshold_at_bpcer_rejects_no_scores():
+    from face_decision_lab.metrics import threshold_at_bpcer
+
+    with pytest.raises(MetricInputError):
+        threshold_at_bpcer([], max_bpcer=0.005)
