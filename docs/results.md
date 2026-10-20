@@ -588,3 +588,98 @@ resolution test is what points at the detail CelebA-HQ's processing added.
 DiffusionFace's low AUC therefore does not show that these detectors miss its fakes: against
 ordinary real photos they separate them about as well as DiFF's. It shows that they flag
 CelebA-HQ photos as fake, which matters for any input that went through a similar enhancement.
+
+## 2026-10-20: DiFF per subset, against published results
+
+Papers that report DiFF give one AUC per subset, each subset's test fakes against the pristine
+test images, and average the four. The table below computes the same from the scores of the
+2026-10-20 intervals section (`scores/cross_diff.npz`), with the lab's `auc`; the interval is the
+95% percentile interval of the four-subset mean over 1,000 resamples of whole subjects
+(`bootstrap_interval`, seed 3407). AUC in percent.
+
+| Detector | Training data | T2I | I2I | FS | FE | Mean |
+|---|---|---|---|---|---|---|
+| v1 | DeepFakeFace, AxonData | 82.09 | 75.07 | 98.43 | 95.67 | 87.82 [87.36, 88.26] |
+| GenD PE | FF++ c23 | 96.90 | 95.48 | 98.69 | 91.08 | 95.54 [95.29, 95.80] |
+| GenD ensemble | FF++ c23 | 95.72 | 93.57 | 98.90 | 90.20 | 94.60 [94.31, 94.90] |
+| v2 | DeepFakeFace, AxonData, FF++ originals | 93.67 | 92.02 | 99.06 | 97.83 | 95.65 [95.44, 95.84] |
+| Max, v2 + ensemble | as its two parts | 93.40 | 91.75 | 99.30 | 97.70 | 95.54 [95.35, 95.72] |
+
+Published results with no training on DiFF, as reported (AUC in percent, frame level):
+
+| Method | Training data | T2I | I2I | FS | FE | Mean | Source |
+|---|---|---|---|---|---|---|---|
+| FS-VFM ViT-L/16 | FF++ DeepFakes c23 | 92.72 | 92.51 | 97.17 | 92.83 | 93.81 | arXiv 2510.10663, Table V |
+| FS-VFM ViT-B/16 | FF++ DeepFakes c23 | 91.00 | 91.80 | 83.16 | 89.84 | 88.95 | arXiv 2510.10663, Table V |
+| FSFM ViT-B/16 | FF++ DeepFakes c23 | 88.20 | 89.00 | 81.99 | 88.50 | 86.92 | arXiv 2510.10663, Table V |
+| FSFM ViT-B/16 | FF++ DeepFakes c23 | 61.74 | 71.91 | 71.31 | 78.98 | 70.99 | arXiv 2412.12032 (CVPR 2025), Table 3 |
+| EfficientNet | FF++ | 74.12 | 57.27 | 82.11 | 57.20 | 67.68 | DiFF paper, arXiv 2401.15859, Table 7 |
+
+The two FSFM rows are the same method in two papers by the same group; the source gives no reason
+for the gap. The EfficientNet mean is ours, from the paper's four values.
+
+The real side matches. The DiFF paper describes a pristine collection of 23,661 images split
+8:1:1, but the pristine archive the authors send holds `DiFF_real/test` (23,731 images),
+`DiFF_real/train/real` (14,286) and `DiFF_real/val/real` (550). FSFM's preprocessing
+(`datasets/finetune/preprocess/dataset_preprocess.py`, `make_DiFF_set_extract_face`) sets every
+image under `DiFF_real/test` against each subset's test fakes, as we do. Its published test log
+(`finetuned_models/FF++_DF_c23_32frames/experiments_test/test_results.txt` in the
+`Wolowolo/fsfm-3c` model repository) counts 43,582, 35,227, 28,133 and 37,484 test images for
+T2I, I2I, FS and FE, against our 45,081, 36,897, 29,928 and 39,344: DLIB, which FSFM uses with a
+box 30% larger than the face, leaves 1,499 to 1,860 fewer test images per subset than
+RetinaFace. The external review's 23,661 is the
+paper's size of the whole pristine collection, not of the test split.
+
+Two differences remain. FSFM picks a checkpoint per subset by the lowest loss on that subset's
+DiFF validation split (`checkpoint-min_val_loss_T2I.pth` and so on in the same log); our
+detectors never saw DiFF, validation included. The larger one is training data: the published
+rows train on FF++ DeepFakes c23 alone, the GenD models on FF++ c23, and v1 and v2 on
+DeepFakeFace, whose fakes include Stable Diffusion inpainting and text-to-image faces. GenD PE
+above the best published mean shows that a detector trained on FF++ alone gets there with this
+preprocessing; v2 above it does not show that the lab's method is better, since v2 saw diffusion
+faces. A same-protocol comparison needs the lab's recipe trained on FF++ DeepFakes c23 alone and
+scored the same way.
+
+## 2026-10-20: the lab's recipe trained on FF++ DeepFakes alone, scored on DiFF
+
+`clip_layernorm_detector.ipynb` at commit 8edf794 trained v2's recipe (CLIP ViT-L/14 as released,
+LayerNorm tuning, cross entropy, one epoch, batch 32, peak learning rate 3e-4, 1.5x framing, no
+augmentation) under `ffpp_deepfakes_to_diff`: the FF++ c23 originals and DeepFakes of the official
+training split, 22,644 crops, calibration on the validation split, and DiFF's test split as the
+test side. Training took 19.3 minutes on an L4. This is the protocol of the published rows above,
+with no checkpoint selection on DiFF.
+
+| Test side | AUC per subset (T2I / I2I / FS / FE) | Mean of the four | Frame / video AUC |
+|---|---|---|---|
+| DiFF | 91.78 / 90.24 / 98.10 / 93.70 | 93.46 | 0.926 pooled |
+| Celeb-DF v2 test | | | 0.752 / 0.895 |
+| FF++ c23 test, four methods | | | 0.780 / 0.843 |
+
+The notebook keeps reports but not per-crop scores for this run, so the mean has no interval.
+Against the published rows on the same training data, it sits above FSFM ViT-B/16 (86.92 and
+70.99) and FS-VFM ViT-B/16 (88.95) and 0.35 points below FS-VFM ViT-L/16 (93.81). Without an
+interval and with a different face detector and framing, 93.46 and 93.81 cannot be told apart;
+it is no state-of-the-art result. It also shows where v2's 95.65 comes from: about two points
+of it are the training data, not the recipe.
+
+## 2026-10-20: detection at a fixed BPCER
+
+A bank's face check works at a fixed BPCER: at most 0.5% of genuine customers rejected, and
+usually 0.1% to 0.2%. The number that matters there is detection, 1 - APCER over all attacks,
+at that BPCER. From the saved scores of the intervals section, with the threshold set on the
+test's own bona fide crops (optimistic; a threshold fixed on other data would detect less):
+
+| Detector | DiFF at BPCER 0.5% | 0.2% | 0.1% | DiffusionFace at 0.5% |
+|---|---|---|---|---|
+| v1 | 7.8% | 0% | 0% | 0% |
+| GenD PE | 22.1% | 15.1% | 11.4% | 8.1% |
+| GenD ensemble | 20.7% | 13.0% | 8.7% | 11.1% |
+| v2 | 21.1% | 12.0% | 7.2% | 2.6% |
+| Max, v2 + ensemble | 21.7% | 12.4% | 8.7% | 3.5% |
+
+At BPCER 0.5% the max fusion detects 11% of T2I, 9% of I2I, 66% of FS and 29% of FE fakes.
+v1 gives many bona fide crops its top score, so no threshold brings its BPCER under 0.2%. The
+highest-scored real photos set the threshold at these points, and every detector here leaves
+most fakes below it, AUC of 0.95 notwithstanding. DiffusionFace's 1,490 reals allow 7 errors at
+0.5% and 1.5 at 0.1%, so its column is little more than noise. Experiments from here on report
+detection at BPCER 0.1%, 0.2% and 0.5%, with the threshold fixed on a calibration side.
