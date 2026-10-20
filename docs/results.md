@@ -740,3 +740,34 @@ Four pairs were tried on this test side, so the best of them is chosen on it:
 FS-VFM ViT-L and GenD PE, both trained on FF++ c23 alone, reach a four-subset mean of 98.03, about
 three points above either one; their thresholds from FF++ give a DiFF BPCER of 2.5% to 4.2%, so the
 fusion still needs calibration on photos. Neither model was scored on Celeb-DF here.
+
+## 2026-10-20: the same detectors on video, and one fusion for photos and video
+
+`score_diffusion_benchmarks.ipynb` at commits c73421d (`cross_celebdf`, 8,285 crops of the 518
+official Celeb-DF v2 test videos) and 0959204 (`ffpp`, the 10,993 crops of the official FF++ c23
+test split) scored the detectors of the section above, with thresholds from the same 2,200 FF++
+validation originals. Fusions average each detector's logit standardized on those originals.
+Video AUC is the AUC of the mean frame score per video, its interval over 500 resamples of whole
+subjects; detection is at BPCER 0.1%, 0.2% and 0.5% on the FF++ threshold, with the BPCER that
+threshold gives on the test's reals in parentheses.
+
+| Detector | Celeb-DF frame / video AUC [95% CI] | Celeb-DF detection (BPCER) | FF++ test frame / video AUC | DiFF mean AUC |
+|---|---|---|---|---|
+| FS-VFM ViT-L/16 | 0.626 / 0.645 [0.605, 0.691] | 2.6%, 3.2%, 5.0% (0.39%, 0.60%, 1.41%) | 0.706 / 0.721 | 95.04 |
+| Lab recipe, `ffpp_deepfakes_to_diff` | 0.752 / 0.895 [0.868, 0.917] | 9.3%, 21.7%, 30.5% (0.04%, 0.25%, 0.67%) | 0.780 / 0.843 | 93.46 |
+| GenD CLIP | 0.894 / 0.951 [0.937, 0.966] | 3.0%, 5.3%, 14.4% (0.04%, 0.04%, 0.46%) | 0.946 / 0.966 | |
+| GenD PE | 0.899 / 0.953 [0.937, 0.968] | 3.6%, 7.9%, 17.8% (0.04%, 0.14%, 0.39%) | 0.968 / 0.976 | 95.54 |
+| GenD ensemble | 0.916 / 0.967 [0.954, 0.978] | 2.4%, 3.1%, 29.7% (0%, 0%, 0.91%) | 0.964 / 0.976 | 94.60 |
+| Max, v2 + GenD ensemble | 0.903 / 0.957 [0.942, 0.971] | 2.8%, 3.9%, 32.0% (0%, 0.04%, 1.69%) | 0.964 / 0.976 | 95.54 |
+| FS-VFM ViT-L + GenD PE | 0.877 / 0.927 [0.908, 0.950] | 20.6%, 22.6%, 31.2% (1.44%, 1.55%, 2.46%) | 0.947 / 0.959 | 98.03 |
+| FS-VFM ViT-L + GenD CLIP + GenD PE | 0.912 / 0.957 [0.942, 0.973] | 12.6%, 16.3%, 29.9% (0.67%, 0.88%, 1.51%) | 0.960 / 0.970 | 97.99 [97.87, 98.10] |
+
+FS-VFM ViT-L detects its own training method, FF++ DeepFakes, at AUC 0.988 on these crops, and
+Face2Face (0.575), NeuralTextures (0.544) and Celeb-DF poorly: this checkpoint saw one
+manipulation method, and the crops are not what fails it. On DiFF the three-way fusion detects
+44.3%, 48.4% and 60.2% at the FF++ thresholds, with a DiFF BPCER of 0.39%, 0.50% and 1.10%.
+
+The three-way fusion, every part trained on FF++ c23 alone, holds the lab's video bar (Celeb-DF
+video AUC 0.957, the max fusion's) and adds 2.45 points of DiFF mean over the best single
+detector. It was picked after seeing DiFF and Celeb-DF, out of six fusions, so it still needs a
+test set that played no part in the choice, such as DiffusionFace or DF40's unknown methods.
