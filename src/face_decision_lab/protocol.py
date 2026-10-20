@@ -67,10 +67,18 @@ DF40_PROTOCOLS = ("df40_ff", "lab_df40")
 # bona fide (sources/superresolved.py), and keep its calibration and test sides.
 SUPER_RESOLVED_PROTOCOLS = {"lab_ffpp_real_sr": "lab_ffpp_real"}
 
+# Protocols that add every photo of some real-photo datasets to their base protocol's training side,
+# as bona fide, and keep its calibration and test sides. The detectors flag real photos from sources
+# they never saw (DiffusionFace's CelebA-HQ, docs/results.md); these measure whether more kinds of
+# real photo in training fix that, on real sources still left out.
+EXTRA_REALS_PROTOCOLS = {"lab_ffpp_real_ffhq": ("lab_ffpp_real", ("ffhq",))}
+
 # Datasets with their own test role; the lab's subject split never draws from them, since mixed in
 # they would change the subject shuffle and the split would no longer be the one every other model
 # was scored on.
-EXTERNAL_DATASETS = frozenset({"celebdf", "df40", "diff", "diffusionface", "faceforensics", "superresolved"})
+EXTERNAL_DATASETS = frozenset(
+    {"celebdf", "df40", "diff", "diffusionface", "faceforensics", "ffhq", "superresolved"}
+)
 
 
 def external_datasets(protocol: str) -> frozenset[str]:
@@ -79,6 +87,9 @@ def external_datasets(protocol: str) -> frozenset[str]:
         return frozenset({CROSS_DATASET_PROTOCOLS[protocol]})
     if protocol in SUPER_RESOLVED_PROTOCOLS:
         return external_datasets(SUPER_RESOLVED_PROTOCOLS[protocol]) | {"superresolved"}
+    if protocol in EXTRA_REALS_PROTOCOLS:
+        base, datasets = EXTRA_REALS_PROTOCOLS[protocol]
+        return external_datasets(base) | set(datasets)
     if protocol == "df40_ff":
         return frozenset({"df40"})
     if protocol == "lab_df40":
@@ -102,11 +113,13 @@ def protocol_split(
         return _ffpp_split(samples, protocol)
     if protocol in SUPER_RESOLVED_PROTOCOLS:
         return _super_resolved_split(samples, SUPER_RESOLVED_PROTOCOLS[protocol])
+    if protocol in EXTRA_REALS_PROTOCOLS:
+        return _extra_reals_split(samples, *EXTRA_REALS_PROTOCOLS[protocol])
     if protocol in DF40_PROTOCOLS:
         return _df40_split(samples, protocol)
     if protocol not in PROTOCOLS:
         known = sorted(PROTOCOLS) + sorted(CROSS_DATASET_PROTOCOLS) + sorted(FFPP_PROTOCOLS)
-        known += sorted(SUPER_RESOLVED_PROTOCOLS) + list(DF40_PROTOCOLS)
+        known += sorted(SUPER_RESOLVED_PROTOCOLS) + sorted(EXTRA_REALS_PROTOCOLS) + list(DF40_PROTOCOLS)
         raise ValueError(f"unknown protocol {protocol!r}; choose one of {known}")
     samples = [s for s in samples if s.source_dataset not in EXTERNAL_DATASETS]
     held_out = PROTOCOLS[protocol]
@@ -165,6 +178,17 @@ def _super_resolved_split(
     trained = {pair_key(s) for s in train if s.is_bona_fide}
     copies = [s for s in _from(samples, "superresolved") if pair_key(s) in trained]
     return train + copies, calibration, test
+
+
+def _extra_reals_split(
+    samples: list[FaceSample], base: str, datasets: tuple[str, ...]
+) -> tuple[list[FaceSample], list[FaceSample], list[FaceSample]]:
+    train, calibration, test = protocol_split(samples, base)
+    added = [s for dataset in datasets for s in _from(samples, dataset)]
+    not_real = [s.image_path for s in added if not s.is_bona_fide]
+    if not_real:
+        raise ValueError(f"real-photo datasets {datasets} must hold bona fide crops only: {not_real[:3]}")
+    return train + added, calibration, test
 
 
 def _df40_split(

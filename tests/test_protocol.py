@@ -665,3 +665,46 @@ def test_detection_at_bpcer_needs_calibration_reals_and_test_attacks(make_sample
         detection_at_bpcer(attacks, attack_scores, attacks, attack_scores)
     with pytest.raises(MetricInputError):
         detection_at_bpcer(reals, real_scores, reals, real_scores)
+
+
+def _real_photos(make_sample, source, count):
+    return [
+        make_sample(subject=f"{source}_{i}", video=f"{source}/{i}", source=source, path=f"{source}/{i}.png",
+                    generator=f"{source}_real")
+        for i in range(count)
+    ]
+
+
+def test_lab_ffpp_real_ffhq_adds_every_ffhq_photo_to_training_only(make_sample):
+    lab, celebdf = _with_celebdf(make_sample, 900, 1)
+    ffpp = _ffpp(make_sample)
+    ffhq = _real_photos(make_sample, "ffhq", 50)
+
+    train, calibration, test = protocol_split(lab + ffpp + celebdf + ffhq, "lab_ffpp_real_ffhq")
+
+    base_train, base_calibration, base_test = protocol_split(lab + ffpp + celebdf, "lab_ffpp_real")
+    assert [s for s in train if s.source_dataset != "ffhq"] == base_train
+    assert [s for s in train if s.source_dataset == "ffhq"] == ffhq
+    assert (calibration, test) == (base_calibration, base_test)
+
+
+def test_lab_ffpp_real_ffhq_refuses_an_ffhq_crop_that_is_not_bona_fide(make_sample):
+    lab, celebdf = _with_celebdf(make_sample, 900, 1)
+    fake = make_sample(attack_type="fully_synthetic", source="ffhq", path="ffhq/x.png", generator="ffhq_real")
+
+    with pytest.raises(ValueError, match="bona fide"):
+        protocol_split(lab + _ffpp(make_sample) + celebdf + [fake], "lab_ffpp_real_ffhq")
+
+
+def test_lab_protocols_ignore_ffhq_photos(make_sample):
+    lab = _samples(make_sample, 900)
+
+    assert protocol_split(lab + _real_photos(make_sample, "ffhq", 30), "subject_holdout") == protocol_split(
+        lab, "subject_holdout"
+    )
+
+
+def test_lab_ffpp_real_ffhq_needs_faceforensics_and_ffhq():
+    from face_decision_lab.protocol import external_datasets
+
+    assert external_datasets("lab_ffpp_real_ffhq") == {"faceforensics", "ffhq"}

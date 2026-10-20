@@ -18,6 +18,7 @@
 - `lab_ffpp_real` protocol: the lab's training side plus the FF++ originals as bona fide video
 - `lab_ffpp_real_sr` protocol and the `superresolved` source: copies of the training-side real crops enlarged by a super-resolution network, labeled bona fide
 - `ffpp_deepfakes_to_diff` protocol: training on the FF++ originals and DeepFakes alone and testing on DiFF, as in the published DiFF results of FSFM and FS-VFM
+- FFHQ adapter (`sources.ffhq`), a build notebook for a fixed sample of about 30,000 FFHQ photos, and the `lab_ffpp_real_ffhq` protocol that adds them to `lab_ffpp_real`'s training side as bona fide
 - DF40 adapter for the FF++-domain frames of its 31 known methods and its 9 unknown methods, the `df40_ff` and `lab_df40` protocols, and `auc_within_groups` to score each method against its own reals
 - `http_range_reader` and `remote_zip_members` to crop a sample of a remote zip archive from HTTP byte ranges, without downloading it
 - `download_ranges` to download a whole archive in large byte ranges, continuing a partial file
