@@ -45,6 +45,7 @@ Research only. The plan and its pass criteria are in
 | `notebooks/score_gend_variants.ipynb` | Scores the GenD CLIP and Perception Encoder checkpoints and their ensemble on square and aligned Celeb-DF crops |
 | `notebooks/score_gated_fusion.ipynb` | Gates between the lab detector and the GenD ensemble by predicted domain |
 | `notebooks/score_diffusion_benchmarks.ipynb` | Scores the photo detectors, GenD and their fusions on DiFF, DiffusionFace or DF40's unknown methods, with the AUC of each subset or method |
+| `notebooks/analyze_diffusion_benchmarks.ipynb` | Bootstrap intervals, the paired v2 vs GenD PE difference and a swap of the real photos between DiFF and DiffusionFace, from saved per-crop scores (no GPU) |
 | `notebooks/diagnose_bona_fide_scores.ipynb` | Scores real crops from every source at native and lowered resolution, to tell whether low resolution or CelebA-HQ itself makes the detectors flag DiffusionFace reals |
 | `notebooks/build_superresolved.ipynb` | Builds super-resolved copies of the training-side real crops (Real-ESRGAN, Swin2SR) for `lab_ffpp_real_sr` |
 | `notebooks/build_df40.ipynb` | Crops DF40's known methods (FF++ domain) and unknown methods into a private dataset |
