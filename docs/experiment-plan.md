@@ -1,7 +1,10 @@
 # Experiment plan
 
-The question: does an LLM with a decision head, reading one face crop, detect presentation attacks
-and deepfakes on datasets it never trained on better than simpler detectors do?
+The question: can a detector tell real faces from deepfakes and presentation attacks on datasets
+it never trained on, at the level of the best published detectors on public benchmarks? The lab
+started with an LLM with a decision head as the detector and closed it (see
+[Decision model, closed](#decision-model-closed)); the detector is now the LayerNorm-tuned CLIP
+ViT-L/14, alone or fused with the official GenD checkpoints.
 
 Experiments use the splits in `face_decision_lab.splits` and the metrics in
 `face_decision_lab.metrics`. Results are reported as measured on the test side, with the number of
@@ -19,7 +22,7 @@ trains on both the lab data and FaceForensics++.
 
 ## Baselines
 
-The decision model only counts as an improvement if it beats these on the same split.
+A detector only counts as an improvement if it beats these on the same split.
 
 | Baseline | Attack family | Status |
 |---|---|---|
@@ -43,8 +46,27 @@ The decision model only counts as an improvement if it beats these on the same s
 | 5 | Calibration | ECE reported by `FastDecisionModel.calibrate` on the calibration split, and the same measure on the test split |
 | 6 | Latency | p95 time of one `predict` call on the chosen GPU, measured over at least 200 crops |
 
-If experiments 2 and 3 both fail after experiment 4, the decision model does not add value as a
-pixel-level detector and the lab moves on to using it over detector scores and session metadata.
+Experiments 2 to 6 were written for the decision model and are closed with it, unrun.
+
+## Decision model, closed
+
+On 2026-10-20 the lab stopped work on `Qwen3.5-4B` with Unsloth's `FastDecisionModel` as a
+pixel-level detector. It met the gate of experiment 1b and then lost to the LayerNorm-tuned CLIP
+detector on both protocols the two were scored on, on the same test crops (`docs/results.md`,
+2026-10-16 and 2026-10-17):
+
+| Protocol | Metric | Decision model, vision LoRA, 600 steps | LayerNorm-tuned CLIP |
+|---|---|---|---|
+| subject_holdout | AUC | 0.996 | 0.998 |
+| subject_holdout | BPCER at APCER ≤ 5% | 2.3% | 1.2% |
+| unseen_text2img | AUC | 0.972 | 0.989 |
+| unseen_text2img | BPCER at APCER ≤ 5% | 13.1% | 4.5% |
+
+Its 600-step run needed three resumes after Colab session losses, and its `predict` took about
+320 ms per crop at p95 on an L4. The deepfake detectors the lab compares with (GenD, FSFM, FS-VFM)
+are vision encoders, so a CLIP detector is also the one with published numbers to stand against.
+The decision model was never scored on Celeb-DF or DiFF. Using it over detector scores and session
+metadata, the fallback this plan named, was not tried.
 
 ## Out of scope
 

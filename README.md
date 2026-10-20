@@ -1,15 +1,22 @@
 # face-decision-lab
 
-A research lab for one question: can a small language model with a decision head look at a face
-crop and tell a live face from a presentation attack or a deepfake, on datasets it never saw?
+A research lab for one question: can a detector tell a real face photo or video frame from a
+deepfake (face swap, reenactment, diffusion-generated or diffusion-edited face) or a presentation
+attack, on datasets it never saw?
 
-The model is `Qwen3.5-4B` fine-tuned with Unsloth's `FastDecisionModel`. It does not generate text.
-For each crop it answers two questions with calibrated probabilities:
+The detector is CLIP ViT-L/14 with only its LayerNorm layers tuned and a linear head on the
+normalized image features, the recipe of GenD (Yermakov et al., WACV 2026), trained on the lab's
+own mix of data. For video it is fused, by the larger score, with the official GenD CLIP and
+Perception Encoder checkpoints. Each crop gets one score, the probability that it is an attack.
+`docs/results.md` holds every measured result, against published ones where a benchmark allows.
 
-- `is_bona_fide`: is this a live, unaltered face?
-- `attack_type`: bona fide, print, replay, mask, face swap, face reenactment or fully synthetic.
+The lab started from `Qwen3.5-4B` fine-tuned with Unsloth's `FastDecisionModel`, which answers
+`is_bona_fide` and `attack_type` for each crop. The LayerNorm-tuned CLIP detector beat it on both
+protocols the two shared, by the widest margin on an unseen generator, and trains in a fraction of
+the time, so the decision model is closed as a pixel-level detector. The reasons are in
+[docs/experiment-plan.md](docs/experiment-plan.md#decision-model-closed).
 
-Identity matching is not part of this model. It stays with a face recognition model such as
+Identity matching is not part of this lab. It stays with a face recognition model such as
 DeepFace's Facenet512.
 
 ## Status
@@ -49,7 +56,7 @@ Research only. The plan and its pass criteria are in
 | `notebooks/diagnose_bona_fide_scores.ipynb` | Scores real crops from every source at native and lowered resolution, to tell whether low resolution or CelebA-HQ itself makes the detectors flag DiffusionFace reals |
 | `notebooks/build_superresolved.ipynb` | Builds super-resolved copies of the training-side real crops (Real-ESRGAN, Swin2SR) for `lab_ffpp_real_sr` |
 | `notebooks/build_df40.ipynb` | Crops DF40's known methods (FF++ domain) and unknown methods into a private dataset |
-| `notebooks/train_decision_model.ipynb` | Trains, calibrates and evaluates on Colab |
+| `notebooks/train_decision_model.ipynb` | Trains, calibrates and evaluates the closed Qwen3.5-4B decision model on Colab |
 
 ## Running
 
@@ -61,23 +68,27 @@ uv run pytest
 uv run ruff check .
 ```
 
-Both notebooks run on Colab Pro (L4 or A100) and install this package from GitHub.
+The notebooks run on Colab Pro (L4 or A100) and install this package from GitHub.
 
-1. `notebooks/train_decision_model.ipynb` with `SMOKE = True` (the default) runs on generated noise
-   images and needs no data. It checks the setup on the GPU.
-2. `notebooks/build_dataset.ipynb` crops the source datasets and uploads them as a private Hugging
-   Face dataset. See [docs/data.md](docs/data.md) for sources, labels and the crop.
-3. `notebooks/train_decision_model.ipynb` with `SMOKE = False` trains on that dataset.
+1. `notebooks/build_dataset.ipynb` crops the source datasets and uploads them as a private Hugging
+   Face dataset. See [docs/data.md](docs/data.md) for sources, labels and the crop. The `build_*`
+   notebooks do the same for each external test set.
+2. `notebooks/clip_layernorm_detector.ipynb` trains the detector for each protocol in
+   `PROTOCOL_NAMES` and uploads its checkpoint and reports.
+3. `notebooks/score_diffusion_benchmarks.ipynb` scores the detectors and their fusions on DiFF,
+   DiffusionFace or DF40 and saves every crop's score.
 
-Both read a Colab secret `HF_TOKEN` to reach the private dataset.
+They read a Colab secret `HF_TOKEN` to reach the private datasets.
 
 ## Licenses
 
 The code in this repository is Apache-2.0. What you train with it is not free of restrictions:
 
 - The public face datasets listed in `docs/data.md` are research-only.
-- Unsloth's decision model code (`unsloth/models/decision*.py`) is AGPL-3.0.
-- `Qwen3.5-4B` is Apache-2.0.
+- OpenAI's CLIP repository is MIT, and so are the GenD checkpoints (`yermandy/GenD_CLIP_L_14`,
+  `yermandy/GenD_PE_L`).
+- Unsloth's decision model code (`unsloth/models/decision*.py`), used only by the closed decision
+  model notebook, is AGPL-3.0. `Qwen3.5-4B` is Apache-2.0.
 
 Face images are biometric data. Store them only where the dataset license allows, and never commit
 them: `data/` is ignored by git.
